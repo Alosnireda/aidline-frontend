@@ -60,6 +60,25 @@ The default `.env.local` uses the shared testnet contract. Point `NEXT_PUBLIC_AP
 4. Add a screenshot to the pull request for any visual change.
 5. Link the issue with `Closes #123`.
 
+## Security checks
+
+Every pull request runs the `Security` workflow, and its `security` job must pass before anything can merge. It checks that:
+
+- no new dependency has a known high or critical advisory, including packages GitHub has flagged as malware
+- every package in `package-lock.json` comes from the public npm registry
+- the pull request does not add a package that runs an install script, which is where most npm malware hides
+- the commits in the pull request contain no secrets or keys
+
+If a check fails, read the log, fix the cause and push again. If you think it is a false positive, explain why in the pull request and a maintainer will look at it. Do not edit files under `.github/` to make a check pass. Changes there always need the project lead's review.
+
+Maintainers, before merging a pull request:
+
+1. Confirm the `security` check has passed.
+2. Read the whole diff, not just the description.
+3. Question anything unusual: new dependencies, lockfile changes, install scripts, changes under `.github/`, obfuscated code or long encoded strings, unknown URLs, and code that reads environment variables or sends data somewhere.
+4. Do not run a pull request's code on your machine before you have read it.
+5. Leave the `Stellar Wave` label, complexity and points to the project lead.
+
 ## Code guidelines
 
 - Server components fetch data. Client components (`'use client'`) only where you need state, effects or the wallet.
