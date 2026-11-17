@@ -1,0 +1,48 @@
+name: Security
+
+# Supply chain and secret checks. The `security` job must pass before a pull request can merge.
+# See "Security checks" in CONTRIBUTING.md.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    env:
+      BASE: ${{ github.event.pull_request.base.sha }}
+      HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Dependency review
+        # Fails when the PR adds a dependency with a known high or critical advisory,
+        # which includes packages GitHub has flagged as malware.
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      - name: Lockfile sources and install scripts
+        run: node .github/scripts/check-lockfile.mjs "$BASE"
+
+      - name: Secret scan
+        # Scans only the commits in this PR, so old history cannot block it.
+        env:
+          GITLEAKS_VERSION: 8.21.2
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar xz -C /usr/local/bin gitleaks
+          gitleaks git --log-opts="$BASE..$HEAD" --redact --verbose .
+
+      - name: Flag changes to CI files
+        # A PR can change this workflow too, so CI changes always need the project lead's review.
+        run: |
+          changed=$(git diff --name-only "$BASE...$HEAD" -- .github/workflows .github/scripts)
+          if [ -n "$changed" ]; then
+            echo "::warning::This PR changes CI files. The project lead must review them before merging."
+            echo "$changed"
+          fi
