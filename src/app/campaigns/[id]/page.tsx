@@ -12,7 +12,7 @@ import { RefundPanel } from '@/components/campaign/RefundPanel';
 import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
-import { explorer } from '@/lib/config';
+import { explorer, config } from '@/lib/config';
 import { deadlineLabel, formatAmount, formatDate, shortAddress } from '@/lib/format';
 import { safe } from '@/lib/safe';
 
@@ -45,6 +45,31 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
 
   return (
     <article>
+      {/* #141: Embed code section + #142: JSON-LD structured data */}
+      {m && (
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'DonationCampaign',
+                name: m.title,
+                description: m.summary,
+                location: m.location,
+                organizer: m.organizer ?? undefined,
+                url: `${config.siteUrl}/campaigns/${campaign.id}`,
+              }).replace(/</g, '\\u003c'),
+            }}
+          />
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm text-ink-muted">Embed this campaign</summary>
+            <pre className="mt-2 overflow-x-auto rounded border border-rule p-3 text-xs">
+              {`<iframe src="${config.siteUrl}/campaigns/${campaign.id}" width="400" height="600" frameborder="0"></iframe>`}
+            </pre>
+          </details>
+        </>
+      )}
       <Container className="pt-10">
         <Link href="/campaigns" className="link text-sm">
           All campaigns

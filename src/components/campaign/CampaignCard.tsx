@@ -1,15 +1,20 @@
 import Link from 'next/link';
-
 import type { Campaign } from '@/lib/api';
 import { deadlineLabel } from '@/lib/format';
-
 import { CampaignCover } from './CampaignCover';
 import { FundingBar } from './FundingBar';
 import { KIND, STATUS_LABEL } from './kind';
-
+// #143: threshold for "Ending soon" marker — 3 days in milliseconds
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
+  const endingSoon =
+    campaign.status === 'active' &&
+    campaign.deadline &&
+    Number(campaign.deadline) > 0 &&
+    Number(campaign.deadline) - Date.now() > 0 &&
+    Number(campaign.deadline) - Date.now() < THREE_DAYS_MS;
   return (
     <Link
       href={`/campaigns/${campaign.id}`}
@@ -24,6 +29,12 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
       <h3 className="mt-2 text-[1.375rem] group-hover:underline group-hover:decoration-rule group-hover:underline-offset-4">
         {m?.title ?? `Campaign #${campaign.id}`}
       </h3>
+      {/* #143: Ending soon marker with text, not colour alone */}
+      {endingSoon && (
+        <p className="mt-1 text-[0.75rem] font-semibold uppercase tracking-wide text-danger">
+          Ending soon
+        </p>
+      )}
       {m?.organizer && (
         <p className="mt-1.5 text-[0.8125rem] text-ink-muted">Raised by {m.organizer}</p>
       )}
@@ -39,6 +50,12 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           <span>
             {campaign.milestonesReleased} of {campaign.milestones.length} milestones verified
           </span>
+          {/* #144: Show donor count with correct singular/plural */}
+          <span>
+            {campaign.donorCount ?? 0} donor{(campaign.donorCount ?? 0) === 1 ? '' : 's'}
+          </span>
+        </p>
+        <p className="mt-1 flex justify-end text-[0.8125rem] text-ink-muted">
           <span>
             {campaign.status === 'active'
               ? deadlineLabel(campaign.deadline)
