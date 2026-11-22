@@ -101,7 +101,10 @@ export default async function CampaignsPage(props: PageProps<'/campaigns'>) {
             ))}
           </div>
           {result.total > PAGE_SIZE && (
-            <div className="mt-14 flex justify-between border-t border-rule pt-5 text-[0.9375rem]">
+            <nav
+              aria-label="Pagination"
+              className="mt-14 flex items-center justify-between border-t border-rule pt-5 text-[0.9375rem]"
+            >
               {page > 1 ? (
                 <Link className="link" href={href({ page: String(page - 1) })}>
                   Newer
@@ -109,12 +112,18 @@ export default async function CampaignsPage(props: PageProps<'/campaigns'>) {
               ) : (
                 <span />
               )}
-              {page * PAGE_SIZE < result.total && (
+              {/* #137: Show page number and total */}
+              <span className="text-ink-muted">
+                Page {page} of {Math.ceil(result.total / PAGE_SIZE)}
+              </span>
+              {page * PAGE_SIZE < result.total ? (
                 <Link className="link" href={href({ page: String(page + 1) })}>
                   Older
                 </Link>
+              ) : (
+                <span />
               )}
-            </div>
+            </nav>
           )}
         </>
       )}

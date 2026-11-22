@@ -157,7 +157,9 @@ export const READ_TIMEOUT_MS = 8000;
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const read = !init?.method || init.method === 'GET';
   const res = await fetch(`${config.apiUrl}${path}`, {
-    cache: 'no-store',
+    // #139: Public reads are revalidated every 30 seconds. Pages change slowly,
+    // and router.refresh() after a transaction bypasses the cache for fresh data.
+    next: { revalidate: 30 },
     ...(read && { signal: AbortSignal.timeout(READ_TIMEOUT_MS) }),
     ...init,
   });
