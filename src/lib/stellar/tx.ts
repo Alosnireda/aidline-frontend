@@ -155,4 +155,17 @@ export const aidline = {
 
   addVerifier: (admin: string, verifier: string, sign: Signer, on?: (s: Status) => void) =>
     invoke(admin, 'add_verifier', [addr(verifier)], sign, on),
+
+  /** Deactivates a verifier. Their open campaigns freeze until reassigned or cancelled. */
+  removeVerifier: (admin: string, verifier: string, sign: Signer, on?: (s: Status) => void) =>
+    invoke(admin, 'remove_verifier', [addr(verifier)], sign, on),
+
+  /** Moves an open campaign to another registered verifier. */
+  reassignVerifier: (
+    admin: string,
+    campaignId: string,
+    newVerifier: string,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke(admin, 'reassign_verifier', [u64(campaignId), addr(newVerifier)], sign, on),
 };

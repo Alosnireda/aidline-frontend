@@ -6,9 +6,10 @@ import { Container } from '@/components/ui/Container';
 import { Notice } from '@/components/ui/Notice';
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
-import { api, type VerifierApplication } from '@/lib/api';
+import { api, type Verifier, type VerifierApplication } from '@/lib/api';
 import { config, explorer } from '@/lib/config';
 import { shortAddress } from '@/lib/format';
+import { VERIFIER_ADMIN_ERRORS } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
 
@@ -19,6 +20,39 @@ export function AdminVerifierTools() {
   const [loading, setLoading] = useState(true);
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const [customAddress, setCustomAddress] = useState('');
+  const [verifiers, setVerifiers] = useState<Verifier[] | null>(null);
+  const [verifiersFailed, setVerifiersFailed] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
+  const [reassignCampaignId, setReassignCampaignId] = useState('');
+  const [reassignTo, setReassignTo] = useState('');
+  const [lastAction, setLastAction] = useState<'register' | 'remove' | 'reassign'>('register');
+
+  const loadVerifiers = async () => {
+    try {
+      const data = await api.verifiers();
+      setVerifiers(data.items);
+      setVerifiersFailed(false);
+      return data.items;
+    } catch {
+      setVerifiersFailed(true);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .verifiers()
+      .then((data) => {
+        if (!cancelled) setVerifiers(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setVerifiersFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,14 +76,15 @@ export function AdminVerifierTools() {
   const handleRegister = async (verifierAddr: string) => {
     if (!address) return;
     setActiveAddress(verifierAddr);
+    setLastAction('register');
     resetTx();
 
     const result = await runTx(
       (onStatus) => aidline.addVerifier(address, verifierAddr, sign, onStatus),
       async () => {
         // Refresh verifier list after confirmation
-        const verifiers = await api.verifiers().catch(() => null);
-        return Boolean(verifiers?.items.some((v) => v.address === verifierAddr));
+        const items = await loadVerifiers();
+        return Boolean(items?.some((v) => v.address === verifierAddr));
       },
     );
 
@@ -60,6 +95,48 @@ export function AdminVerifierTools() {
     }
     setActiveAddress(null);
   };
+
+  const handleRemove = async (verifierAddr: string) => {
+    if (!address) return;
+    setConfirmingRemove(null);
+    setActiveAddress(verifierAddr);
+    setLastAction('remove');
+    resetTx();
+    await runTx(
+      (onStatus) => aidline.removeVerifier(address, verifierAddr, sign, onStatus),
+      async () => {
+        const items = await loadVerifiers();
+        return Boolean(items && !items.some((v) => v.address === verifierAddr));
+      },
+      VERIFIER_ADMIN_ERRORS,
+    );
+    setActiveAddress(null);
+  };
+
+  const handleReassign = async () => {
+    const campaignId = reassignCampaignId.trim();
+    if (!address || !campaignId || !reassignTo) return;
+    setLastAction('reassign');
+    resetTx();
+    const result = await runTx(
+      (onStatus) => aidline.reassignVerifier(address, campaignId, reassignTo, sign, onStatus),
+      async () => {
+        const campaign = await api.campaign(campaignId);
+        return campaign.verifier === reassignTo;
+      },
+      VERIFIER_ADMIN_ERRORS,
+    );
+    if (result) {
+      setReassignCampaignId('');
+      setReassignTo('');
+    }
+  };
+
+  const successMessage = {
+    register: 'Verifier registered on chain.',
+    remove: 'Verifier removed on chain. Their open campaigns are frozen until reassigned.',
+    reassign: 'Campaign reassigned on chain.',
+  }[lastAction];
 
   // Determine admin authorization status
   const configuredAdmin = config.adminAddress;
@@ -218,9 +295,135 @@ export function AdminVerifierTools() {
             </form>
           </section>
 
+          <section className="border-t border-rule pt-8">
+            <h2 className="text-[1.75rem]">Registered Verifiers</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Removing a verifier stops them approving milestones. Campaigns assigned to them freeze
+              until you reassign them below or they are cancelled.
+            </p>
+            {verifiersFailed ? (
+              <div className="mt-6">
+                <Notice title="Verifiers could not be loaded" tone="danger">
+                  The Aidline API is not responding.
+                </Notice>
+              </div>
+            ) : verifiers === null ? (
+              <p className="mt-6 py-6 text-ink-muted">Loading registered verifiers...</p>
+            ) : verifiers.length === 0 ? (
+              <div className="mt-6 border-y border-rule py-8">
+                <p className="text-ink-muted">No verifiers are registered yet.</p>
+              </div>
+            ) : (
+              <ul className="mt-6 divide-y divide-rule border-y border-rule">
+                {verifiers.map((v) => {
+                  const name = v.orgName ?? 'Unnamed verifier';
+                  const isRemoving = busy && lastAction === 'remove' && activeAddress === v.address;
+                  return (
+                    <li
+                      key={v.address}
+                      className="grid gap-3 py-5 sm:grid-cols-[1fr_auto] sm:items-center"
+                    >
+                      <div>
+                        <p className="font-serif text-lg text-ink">{name}</p>
+                        <p className="figure text-xs text-ink-muted">{v.address}</p>
+                      </div>
+                      {confirmingRemove === v.address ? (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-sm text-ink">Remove {name}?</span>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={busy}
+                            onClick={() => void handleRemove(v.address)}
+                          >
+                            Yes, remove
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setConfirmingRemove(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={busy}
+                          onClick={() => setConfirmingRemove(v.address)}
+                        >
+                          {isRemoving ? 'Removing...' : 'Remove'}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="border-t border-rule pt-8 max-w-xl">
+            <h2 className="text-[1.5rem]">Reassign a Campaign</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Move an open campaign to another registered verifier, for example after its verifier
+              was removed or has gone quiet.
+            </p>
+            <form
+              className="mt-4 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleReassign();
+              }}
+            >
+              <div>
+                <label className="label" htmlFor="reassign-campaign">
+                  Campaign id
+                </label>
+                <input
+                  id="reassign-campaign"
+                  className="field font-mono"
+                  inputMode="numeric"
+                  pattern="^[0-9]+$"
+                  required
+                  value={reassignCampaignId}
+                  onChange={(e) => setReassignCampaignId(e.target.value)}
+                  disabled={busy}
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="reassign-verifier">
+                  New verifier
+                </label>
+                <select
+                  id="reassign-verifier"
+                  className="field"
+                  required
+                  value={reassignTo}
+                  onChange={(e) => setReassignTo(e.target.value)}
+                  disabled={busy || !verifiers?.length}
+                >
+                  <option value="">Choose a registered verifier</option>
+                  {verifiers?.map((v) => (
+                    <option key={v.address} value={v.address}>
+                      {(v.orgName ?? 'Unnamed verifier') + ' · ' + shortAddress(v.address, 6)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={busy || !reassignCampaignId.trim() || !reassignTo}
+              >
+                {busy && lastAction === 'reassign' ? 'Reassigning...' : 'Reassign campaign'}
+              </button>
+            </form>
+          </section>
+
           {txState.phase !== 'idle' && (
             <div className="mt-6">
-              <TxStatus state={txState} success="Verifier registered on chain." />
+              <TxStatus state={txState} success={successMessage} />
             </div>
           )}
         </div>
