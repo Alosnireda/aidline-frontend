@@ -222,8 +222,19 @@ export const api = {
     params: { kind?: CampaignKind; status?: CampaignStatus; limit?: number; offset?: number } = {},
   ) => request<{ items: Campaign[]; total: number }>(`/campaigns${query(params)}`),
   campaign: (id: string) => request<CampaignDetail>(`/campaigns/${id}`),
-  donations: (id: string, limit = 20) =>
-    request<{ items: Donation[] }>(`/campaigns/${id}/donations${query({ limit })}`),
+  donations: (
+    id: string,
+    limitOrParams: number | { limit?: number; offset?: number } = 20,
+    offset?: number,
+  ) => {
+    const params =
+      typeof limitOrParams === 'number'
+        ? { limit: limitOrParams, offset }
+        : limitOrParams;
+    return request<{ items: Donation[]; total?: number }>(
+      `/campaigns/${id}/donations${query(params)}`,
+    );
+  },
   releases: (limit = 6) => request<{ items: Release[] }>(`/releases${query({ limit })}`),
   verifiers: () => request<{ items: Verifier[] }>('/verifiers'),
   verifier: (address: string) => request<Verifier & { active: boolean }>(`/verifiers/${address}`),
