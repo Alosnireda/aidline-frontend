@@ -4,8 +4,32 @@ import { useState } from 'react';
 
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, ApiError } from '@/lib/api';
+import { applicationErrors, type ApplicationField } from '@/lib/applicationErrors';
+import { shortAddress } from '@/lib/format';
 
-export function VerifierApplicationForm() {
+/** Props that link an input to its error message, when it has one. */
+function errorProps(field: ApplicationField, message: string | undefined) {
+  return message ? { 'aria-invalid': true, 'aria-describedby': `${field}-error` } : {};
+}
+
+function FieldError({ field, message }: { field: ApplicationField; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={`${field}-error`} className="mt-1.5 text-sm text-danger">
+      {message}
+    </p>
+  );
+}
+
+/**
+ * `registeredAddresses` is the verifier list the page already loaded, or null
+ * if it could not be loaded (then the form is shown, since we cannot tell).
+ */
+export function VerifierApplicationForm({
+  registeredAddresses = null,
+}: {
+  registeredAddresses?: string[] | null;
+}) {
   const { address, state: wallet, connect } = useWallet();
   const [orgName, setOrgName] = useState('');
   const [country, setCountry] = useState('');
@@ -13,6 +37,7 @@ export function VerifierApplicationForm() {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ApplicationField, string>>>({});
 
   if (wallet.status !== 'connected' || !address) {
     return (
@@ -21,6 +46,18 @@ export function VerifierApplicationForm() {
         <button type="button" className="btn btn-primary mt-4" onClick={() => void connect()}>
           Connect wallet to apply
         </button>
+      </div>
+    );
+  }
+
+  if (registeredAddresses?.includes(address)) {
+    return (
+      <div role="status" className="border-l-2 border-ink pl-4">
+        <p className="font-medium text-ink">This wallet is already a registered verifier</p>
+        <p className="mt-1">
+          {shortAddress(address, 6)} is in the list above, so there is nothing to apply for. To
+          verify with a different organisation, connect that organisation&rsquo;s wallet.
+        </p>
       </div>
     );
   }
@@ -43,6 +80,7 @@ export function VerifierApplicationForm() {
       onSubmit={async (e) => {
         e.preventDefault();
         setError(null);
+        setFieldErrors({});
         setStatus('sending');
         try {
           await api.applyAsVerifier({
@@ -55,11 +93,17 @@ export function VerifierApplicationForm() {
           setStatus('sent');
         } catch (err) {
           setStatus('idle');
-          setError(
-            err instanceof ApiError && err.issues.length
-              ? err.issues.map((i) => `${i.path}: ${i.message}`).join('. ')
-              : 'The application could not be sent. Try again in a moment.',
-          );
+          if (err instanceof ApiError && err.issues.length) {
+            const { fields, general } = applicationErrors(err.issues);
+            setFieldErrors(fields);
+            setError(
+              general.length
+                ? general.join(' ')
+                : 'Some answers need fixing. See the messages under each field.',
+            );
+          } else {
+            setError('The application could not be sent. Try again in a moment.');
+          }
         }
       }}
     >
@@ -70,12 +114,14 @@ export function VerifierApplicationForm() {
           </label>
           <input
             id="org"
+            {...errorProps('orgName', fieldErrors.orgName)}
             className="field"
             required
             minLength={2}
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
           />
+          <FieldError field="orgName" message={fieldErrors.orgName} />
         </div>
         <div>
           <label className="label" htmlFor="country">
@@ -83,12 +129,14 @@ export function VerifierApplicationForm() {
           </label>
           <input
             id="country"
+            {...errorProps('country', fieldErrors.country)}
             className="field"
             required
             minLength={2}
             value={country}
             onChange={(e) => setCountry(e.target.value)}
           />
+          <FieldError field="country" message={fieldErrors.country} />
         </div>
       </div>
       <div>
@@ -97,12 +145,14 @@ export function VerifierApplicationForm() {
         </label>
         <input
           id="website"
+          {...errorProps('website', fieldErrors.website)}
           type="url"
           className="field"
           placeholder="https://"
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
         />
+        <FieldError field="website" message={fieldErrors.website} />
       </div>
       <div>
         <label className="label" htmlFor="about">
@@ -110,12 +160,14 @@ export function VerifierApplicationForm() {
         </label>
         <textarea
           id="about"
+          {...errorProps('description', fieldErrors.description)}
           className="field min-h-32"
           required
           minLength={20}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+        <FieldError field="description" message={fieldErrors.description} />
       </div>
       <button type="submit" className="btn btn-primary" disabled={status === 'sending'}>
         {status === 'sending' ? 'Sending' : 'Send application'}

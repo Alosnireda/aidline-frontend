@@ -15,10 +15,30 @@ const CONTRACT_ERRORS: Record<number, string> = {
   13: 'This wallet is not allowed to do that.',
 };
 
-/** Turns RPC, contract and wallet failures into a sentence a donor can act on. */
-export function describeError(err: unknown): string {
+/**
+ * Contract errors `remove_verifier` and `reassign_verifier` can return, keyed by
+ * the codes in aidline-contracts `contracts/aidline/src/errors.rs`. Passed to
+ * `describeError` for those calls so their messages describe what went wrong.
+ */
+export const VERIFIER_ADMIN_ERRORS: Record<number, string> = {
+  1: 'Only the Aidline admin wallet can manage verifiers.',
+  2: 'There is no campaign with that id.',
+  6: 'That campaign is no longer active, so its verifier cannot be changed.',
+  7: 'That campaign has passed its deadline, so its verifier cannot be changed.',
+  9: 'The new verifier is not registered. Register them first, then reassign.',
+  31: 'The contract is paused. Try again once it is unpaused.',
+  40: 'This campaign has already been reassigned the maximum number of times.',
+  42: 'A milestone on that campaign is overdue, so its verifier cannot be changed.',
+};
+
+/**
+ * Turns RPC, contract and wallet failures into a sentence a donor can act on.
+ * `contractErrors` overrides the default messages for a specific call.
+ */
+export function describeError(err: unknown, contractErrors?: Record<number, string>): string {
   const text = err instanceof Error ? err.message : String(err);
   const code = /Error\(Contract, #(\d+)\)/.exec(text)?.[1];
+  if (code && contractErrors?.[Number(code)]) return contractErrors[Number(code)]!;
   if (code && CONTRACT_ERRORS[Number(code)]) return CONTRACT_ERRORS[Number(code)]!;
   if (/declined|rejected|denied/i.test(text)) return 'The request was declined in your wallet.';
   if (/account not found|Account not found/i.test(text))

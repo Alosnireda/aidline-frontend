@@ -32,6 +32,7 @@ export function useTx() {
     async <T>(
       send: (onStatus: (s: Status) => void) => Promise<TxResult<T>>,
       synced?: () => Promise<boolean>,
+      contractErrors?: Record<number, string>,
     ): Promise<TxResult<T> | null> => {
       setState({ phase: 'preparing' });
       try {
@@ -47,7 +48,7 @@ export function useTx() {
         setState({ phase: 'done', hash: result.hash });
         return result;
       } catch (err) {
-        setState({ phase: 'error', message: describeError(err) });
+        setState({ phase: 'error', message: describeError(err, contractErrors) });
         return null;
       }
     },
