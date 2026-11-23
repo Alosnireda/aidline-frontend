@@ -19,6 +19,17 @@ export function MilestoneLedger({
     [],
   );
 
+  const escrowAmount =
+    BigInt(campaign.raised) - BigInt(campaign.released) - BigInt(campaign.refunded ?? 0);
+  const currentEscrow = escrowAmount > 0n ? escrowAmount : 0n;
+
+  let unreleasedNeeded = 0n;
+  const escrowCovered = campaign.milestones.map((m) => {
+    if (m.released) return false;
+    unreleasedNeeded += BigInt(m.amount);
+    return currentEscrow >= unreleasedNeeded;
+  });
+
   const advance =
     campaign.kind === 'emergency' &&
     campaign.emergencyAdvance &&
@@ -66,6 +77,7 @@ export function MilestoneLedger({
       )}
       {campaign.milestones.map((m) => {
         const isNext = m.index === nextIndex;
+        const isCovered = escrowCovered[m.index] ?? false;
         const image = m.proof?.files.filter((f) => f.type.startsWith('image/')) ?? [];
         const docs = m.proof?.files.filter((f) => !f.type.startsWith('image/')) ?? [];
         return (
@@ -160,7 +172,9 @@ export function MilestoneLedger({
               ) : (
                 <p className="mt-2 text-[0.9375rem] text-ink-muted">
                   {campaign.status === 'active'
-                    ? 'Awaiting verification. Funds for this milestone stay in escrow until then.'
+                    ? isCovered
+                      ? 'Covered by escrow. Awaiting verification.'
+                      : 'Escrow does not cover this milestone yet.'
                     : 'Not released. Unspent funds can be reclaimed by donors.'}
                 </p>
               )}
