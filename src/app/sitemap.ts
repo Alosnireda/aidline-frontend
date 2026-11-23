@@ -15,6 +15,9 @@ const STATIC_PAGES: { path: string; priority: number }[] = [
   { path: '/start', priority: 0.5 },
 ];
 
+const PAGE_SIZE = 100;
+const MAX_CAMPAIGNS = 10_000;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages: MetadataRoute.Sitemap = STATIC_PAGES.map(({ path, priority }) => ({
     url: `${config.siteUrl}${path}`,
@@ -23,14 +26,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // If the API is unreachable, still serve the static pages.
-  const campaigns = await safe(() => api.campaigns({ limit: 100 }));
-  for (const c of campaigns?.items ?? []) {
-    pages.push({
-      url: `${config.siteUrl}/campaigns/${c.id}`,
-      lastModified: new Date(c.createdAt),
-      changeFrequency: c.status === 'active' ? 'daily' : 'monthly',
-      priority: c.status === 'active' ? 0.8 : 0.4,
-    });
+  for (let offset = 0; offset < MAX_CAMPAIGNS; ) {
+    const page = await safe(() => api.campaigns({ limit: PAGE_SIZE, offset }));
+    if (!page || page.items.length === 0) break;
+
+    for (const c of page.items) {
+      pages.push({
+        url: `${config.siteUrl}/campaigns/${c.id}`,
+        lastModified: new Date(c.createdAt),
+        changeFrequency: c.status === 'active' ? 'daily' : 'monthly',
+        priority: c.status === 'active' ? 0.8 : 0.4,
+      });
+    }
+
+    offset += page.items.length;
+    if (page.items.length < PAGE_SIZE || offset >= page.total) break;
   }
   return pages;
 }
