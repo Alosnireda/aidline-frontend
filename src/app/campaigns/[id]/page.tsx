@@ -159,6 +159,7 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
                 goal={campaign.goal}
                 raised={campaign.raised}
                 released={campaign.released}
+                refunded={campaign.refunded}
                 size="lg"
               />
               <p className="mt-4 flex justify-between text-sm text-ink-muted">

@@ -48,6 +48,7 @@ export default async function EmbedCampaignPage({ params }: Props) {
             goal={campaign.goal}
             raised={campaign.raised}
             released={campaign.released}
+            refunded={campaign.refunded}
             size="sm"
           />
         </div>
