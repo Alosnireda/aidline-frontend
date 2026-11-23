@@ -3,9 +3,8 @@
 import { useId, useState } from 'react';
 
 import type { StatsHistoryPoint } from '@/lib/api';
-import { computeChartPoints, formatAxisValue, type ChartSnapshot } from '@/lib/chart';
+import { computeChartPoints, formatAxisValue, labelIndices, type ChartSnapshot } from '@/lib/chart';
 import { config } from '@/lib/config';
-import { labelIndices, tickLabel, toXlm } from '@/lib/chart';
 import { formatAmount } from '@/lib/format';
 
 interface DonationReleaseChartProps {
@@ -59,16 +58,6 @@ export function DonationReleaseChart({
     { width, height, paddingLeft, paddingRight, paddingTop, paddingBottom },
     config.tokenDecimals,
   );
-  // Scale to the largest snapshot so testnet totals under 100 XLM still draw a
-  // readable line. Fall back to 1 only when every value is zero.
-  const maxVal = Math.max(1, ...points.flatMap((p) => [toXlm(p.donated), toXlm(p.released)]));
-
-  const getX = (index: number) => paddingLeft + (index / (points.length - 1 || 1)) * chartW;
-
-  const getY = (valStr: string) => {
-    const val = toXlm(valStr);
-    return paddingTop + chartH - (val / maxVal) * chartH;
-  };
 
   const donatedPath = plotted
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.donatedY}`)
@@ -185,7 +174,6 @@ export function DonationReleaseChart({
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
               const y = paddingTop + chartH * (1 - ratio);
               const val = formatAxisValue(maxVal * ratio);
-              const val = maxVal * ratio;
               return (
                 <g key={ratio}>
                   <line
@@ -204,30 +192,18 @@ export function DonationReleaseChart({
                     fill="var(--ink-muted)"
                     className="font-mono text-[10px]"
                   >
-                    {tickLabel(val)}
+                    {val}
                   </text>
                 </g>
               );
             })}
 
             {/* X-axis date labels */}
-            {points.map((p, i) => (
-              <text
-                key={p.date + i}
-                x={plotted[i]!.x}
-                y={height - 12}
-                textAnchor="middle"
-                fill="var(--ink-muted)"
-                className="font-mono text-[11px]"
-              >
-                {p.date}
-              </text>
-            ))}
             {points.map((p, i) =>
               labelled.has(i) ? (
                 <text
                   key={p.date + i}
-                  x={getX(i)}
+                  x={plotted[i]!.x}
                   y={height - 12}
                   textAnchor="middle"
                   fill="var(--ink-muted)"

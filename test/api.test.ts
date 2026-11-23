@@ -31,7 +31,7 @@ describe('api requests', () => {
     const fetchMock = respond(200, { campaigns: 3 });
     await expect(api.stats()).resolves.toEqual({ campaigns: 3 });
     expect(fetchMock).toHaveBeenCalledWith(`${config.apiUrl}/stats`, {
-      cache: 'no-store',
+      next: { revalidate: 30 },
       signal: expect.any(AbortSignal),
     });
   });

@@ -6,15 +6,16 @@ import { FundingBar } from './FundingBar';
 import { KIND, STATUS_LABEL } from './kind';
 // #143: threshold for "Ending soon" marker — 3 days in milliseconds
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+function isEndingSoon(deadline: string): boolean {
+  const remaining = Number(deadline) - Date.now();
+  return Number.isFinite(remaining) && remaining > 0 && remaining < THREE_DAYS_MS;
+}
+
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
-  const endingSoon =
-    campaign.status === 'active' &&
-    campaign.deadline &&
-    Number(campaign.deadline) > 0 &&
-    Number(campaign.deadline) - Date.now() > 0 &&
-    Number(campaign.deadline) - Date.now() < THREE_DAYS_MS;
+  const endingSoon = campaign.status === 'active' && isEndingSoon(campaign.deadline);
   return (
     <Link
       href={`/campaigns/${campaign.id}`}
