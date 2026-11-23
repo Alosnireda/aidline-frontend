@@ -2,12 +2,21 @@ import Link from 'next/link';
 
 import type { Release } from '@/lib/api';
 import { formatAmount, formatDate } from '@/lib/format';
+import { Notice } from '@/components/ui/Notice';
 import { TxLink } from '@/components/ui/TxLink';
 
 import { KIND } from './kind';
 import { VerificationStamp } from './VerificationStamp';
 
-export function ReleaseFeed({ releases }: { releases: Release[] }) {
+/** `releases` is null when the request failed, which is not the same as an empty list. */
+export function ReleaseFeed({ releases }: { releases: Release[] | null }) {
+  if (releases === null) {
+    return (
+      <Notice title="Releases are unavailable">
+        The Aidline API could not be reached. Verified releases will show again once it is back.
+      </Notice>
+    );
+  }
   if (releases.length === 0) {
     return (
       <p className="border-y border-rule py-8 text-ink-muted">

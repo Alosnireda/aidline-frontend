@@ -3,6 +3,8 @@
 import { useId, useState } from 'react';
 
 import type { StatsHistoryPoint } from '@/lib/api';
+import { computeChartPoints, formatAxisValue, type ChartSnapshot } from '@/lib/chart';
+import { config } from '@/lib/config';
 import { labelIndices, tickLabel, toXlm } from '@/lib/chart';
 import { formatAmount } from '@/lib/format';
 
@@ -12,11 +14,7 @@ interface DonationReleaseChartProps {
   totalReleased?: string;
 }
 
-interface ChartPoint {
-  date: string;
-  donated: string;
-  released: string;
-}
+type ChartPoint = ChartSnapshot;
 
 const shortDate = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
@@ -54,9 +52,13 @@ export function DonationReleaseChart({
   const paddingTop = 20;
   const paddingBottom = 40;
 
-  const chartW = width - paddingLeft - paddingRight;
   const chartH = height - paddingTop - paddingBottom;
 
+  const { maxVal, plotted } = computeChartPoints(
+    points,
+    { width, height, paddingLeft, paddingRight, paddingTop, paddingBottom },
+    config.tokenDecimals,
+  );
   // Scale to the largest snapshot so testnet totals under 100 XLM still draw a
   // readable line. Fall back to 1 only when every value is zero.
   const maxVal = Math.max(1, ...points.flatMap((p) => [toXlm(p.donated), toXlm(p.released)]));
@@ -68,12 +70,12 @@ export function DonationReleaseChart({
     return paddingTop + chartH - (val / maxVal) * chartH;
   };
 
-  const donatedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.donated)}`)
+  const donatedPath = plotted
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.donatedY}`)
     .join(' ');
 
-  const releasedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.released)}`)
+  const releasedPath = plotted
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.releasedY}`)
     .join(' ');
 
   // Thin the date labels so a month of snapshots does not draw a solid strip
@@ -168,9 +170,21 @@ export function DonationReleaseChart({
             role="img"
             aria-labelledby={`${titleId} ${descId}`}
           >
+            {/* Unit of the value axis, shown once */}
+            <text
+              x={paddingLeft - 8}
+              y={paddingTop - 8}
+              textAnchor="end"
+              fill="var(--ink-muted)"
+              className="font-mono text-[10px]"
+            >
+              {config.tokenSymbol}
+            </text>
+
             {/* Horizontal Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
               const y = paddingTop + chartH * (1 - ratio);
+              const val = formatAxisValue(maxVal * ratio);
               const val = maxVal * ratio;
               return (
                 <g key={ratio}>
@@ -197,6 +211,18 @@ export function DonationReleaseChart({
             })}
 
             {/* X-axis date labels */}
+            {points.map((p, i) => (
+              <text
+                key={p.date + i}
+                x={plotted[i]!.x}
+                y={height - 12}
+                textAnchor="middle"
+                fill="var(--ink-muted)"
+                className="font-mono text-[11px]"
+              >
+                {p.date}
+              </text>
+            ))}
             {points.map((p, i) =>
               labelled.has(i) ? (
                 <text
@@ -223,8 +249,8 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <circle
                 key={`donated-pt-${i}`}
-                cx={getX(i)}
-                cy={getY(p.donated)}
+                cx={plotted[i]!.x}
+                cy={plotted[i]!.donatedY}
                 r="3.5"
                 fill="var(--relief)"
               />
@@ -242,8 +268,8 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <rect
                 key={`released-pt-${i}`}
-                x={getX(i) - 3}
-                y={getY(p.released) - 3}
+                x={plotted[i]!.x - 3}
+                y={plotted[i]!.releasedY - 3}
                 width="6"
                 height="6"
                 fill="var(--paper)"
