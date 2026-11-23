@@ -7,7 +7,7 @@ import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, type CampaignDetail } from '@/lib/api';
 import { config } from '@/lib/config';
 import { useFiat } from '@/lib/fiat';
-import { formatAmount, parseAmount } from '@/lib/format';
+import { amountInput, capAmount, formatAmount, parseAmount } from '@/lib/format';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
 
@@ -21,6 +21,9 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   const [lastAmount, setLastAmount] = useState<bigint>(0n);
 
   const remaining = BigInt(campaign.goal) - BigInt(campaign.raised);
+  const rest = capAmount(remaining, balance);
+  const restInput = amountInput(rest);
+  const restLabel = formatAmount(rest, { maxFraction: config.tokenDecimals });
   const amount = parseAmount(input);
   const fiatEstimate = amount ? formatFiat(amount) : null;
 
@@ -86,7 +89,7 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
           {config.tokenSymbol}
         </span>
       </div>
-      <div className="mt-2 flex gap-2" role="group" aria-label="Quick amounts">
+      <div className="mt-2 flex flex-wrap gap-2">
         {PRESETS.map((p) => (
           <button
             key={p}
@@ -99,6 +102,14 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
             {p}
           </button>
         ))}
+        <button
+          type="button"
+          className={`figure border px-3 py-1 text-[0.8125rem] ${input === restInput ? 'border-ink text-ink' : 'border-rule text-ink-soft hover:border-ink'}`}
+          onClick={() => setInput(restInput)}
+          disabled={busy}
+        >
+          Give the rest ({restLabel})
+        </button>
       </div>
       <p id="amount-hint" className={`hint ${invalid && input ? 'text-danger' : ''}`}>
         {invalid && input

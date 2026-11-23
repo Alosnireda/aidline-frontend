@@ -139,6 +139,36 @@ export interface DonorHistory {
   refunds: { campaignId: string; amount: string; txHash: string; createdAt: string }[];
 }
 
+export interface DonorPosition {
+  given: bigint;
+  refunded: bigint;
+}
+
+export function donorPosition(history: DonorHistory, campaignId: string): DonorPosition {
+  const given = history.donations
+    .filter((d) => d.campaignId === campaignId)
+    .reduce((sum, d) => sum + BigInt(d.amount), 0n);
+  const refunded = history.refunds
+    .filter((r) => r.campaignId === campaignId)
+    .reduce((sum, r) => sum + BigInt(r.amount), 0n);
+  return { given, refunded };
+}
+
+export interface CachedUpload<K, I> {
+  key: K;
+  input: I;
+  uri: string;
+}
+
+export function reuseUpload<K, I>(
+  cached: CachedUpload<K, I> | null,
+  key: K,
+  input: I,
+): string | null {
+  if (!cached || cached.key !== key || cached.input !== input) return null;
+  return cached.uri;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
-import { api, type CampaignDetail } from '@/lib/api';
+import { api, reuseUpload, type CampaignDetail, type CachedUpload } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
 import { describeError } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
@@ -16,7 +16,13 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
   const { state, run, busy } = useTx();
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<FileList | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadedProof = useRef<CachedUpload<string, FileList | null> | null>(null);
+
+  useEffect(() => {
+    uploadedProof.current = null;
+  }, [campaign.id, campaign.milestonesReleased]);
 
   if (address !== campaign.verifier || campaign.status !== 'active') return null;
 
@@ -24,21 +30,24 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
   if (!next) return null;
   const escrow = BigInt(campaign.raised) - BigInt(campaign.released);
   const funded = escrow >= BigInt(next.amount);
+  const proofKey = `${campaign.id}:${next.index}:${note}`;
 
   const submit = async () => {
     setUploadError(null);
-    const form = new FormData();
-    form.set('campaignId', campaign.id);
-    form.set('milestoneIndex', String(next.index));
-    form.set('note', note);
-    for (const f of Array.from(files ?? [])) form.append('files', f);
-
-    let proofUri: string;
-    try {
-      proofUri = (await api.uploadProof(form)).uri;
-    } catch (err) {
-      setUploadError(describeError(err));
-      return;
+    let proofUri = reuseUpload(uploadedProof.current, proofKey, files);
+    if (!proofUri) {
+      const form = new FormData();
+      form.set('campaignId', campaign.id);
+      form.set('milestoneIndex', String(next.index));
+      form.set('note', note);
+      for (const f of Array.from(files ?? [])) form.append('files', f);
+      try {
+        proofUri = (await api.uploadProof(form)).uri;
+        uploadedProof.current = { key: proofKey, input: files, uri: proofUri };
+      } catch (err) {
+        setUploadError(describeError(err));
+        return;
+      }
     }
     const before = campaign.milestonesReleased;
     const ok = await run(
@@ -48,6 +57,8 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
     if (ok) {
       setNote('');
       setFiles(null);
+      uploadedProof.current = null;
+      setFileInputKey((key) => key + 1);
     }
   };
 
@@ -80,7 +91,10 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
               className="field min-h-24"
               placeholder="Delivered 40 water tanks to three shelters. Receipts attached."
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              onChange={(e) => {
+                setNote(e.target.value);
+                uploadedProof.current = null;
+              }}
               minLength={10}
               maxLength={2000}
               required
@@ -92,11 +106,15 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
               Photos or documents
             </label>
             <input
+              key={fileInputKey}
               id="proof-files"
               type="file"
               multiple
               accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(e) => setFiles(e.target.files)}
+              onChange={(e) => {
+                setFiles(e.target.files);
+                uploadedProof.current = null;
+              }}
               className="block w-full text-sm file:mr-3 file:border file:border-ink file:bg-transparent file:px-3 file:py-1.5 file:text-ink"
               disabled={busy}
             />
