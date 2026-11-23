@@ -15,7 +15,13 @@ import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
 import { explorer, config } from '@/lib/config';
-import { deadlineLabel, formatAmount, formatDate, shortAddress } from '@/lib/format';
+import {
+  deadlineLabel,
+  formatAmount,
+  formatDate,
+  shortAddress,
+  splitParagraphs,
+} from '@/lib/format';
 import { safe } from '@/lib/safe';
 import { getSponsorPool } from '@/lib/stellar/balance';
 
@@ -116,6 +122,9 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
             <section className="mt-12">
               <p className="kicker">The situation</p>
               <div className="mt-4 max-w-[68ch] space-y-4 text-[1.0625rem]">
+                {splitParagraphs(m.description).map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
                 {m.description
                   .replace(/\r\n/g, '\n')
                   .split(/\n\s*\n+/)

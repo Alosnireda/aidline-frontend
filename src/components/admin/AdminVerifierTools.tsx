@@ -6,9 +6,10 @@ import { Container } from '@/components/ui/Container';
 import { Notice } from '@/components/ui/Notice';
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
-import { api, type Verifier, type VerifierApplication } from '@/lib/api';
+import { api, ApiError, type Verifier, type VerifierApplication } from '@/lib/api';
 import { config, explorer } from '@/lib/config';
 import { shortAddress } from '@/lib/format';
+import { getAdminAddress } from '@/lib/stellar/balance';
 import { VERIFIER_ADMIN_ERRORS } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
@@ -18,6 +19,9 @@ export function AdminVerifierTools() {
   const { state: txState, run: runTx, busy, reset: resetTx } = useTx();
   const [applications, setApplications] = useState<VerifierApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [applicationsFailed, setApplicationsFailed] = useState(false);
+  const [adminAddress, setAdminAddress] = useState<string | null>(null);
+  const [adminLoading, setAdminLoading] = useState(true);
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const [customAddress, setCustomAddress] = useState('');
   const [verifiers, setVerifiers] = useState<Verifier[] | null>(null);
@@ -26,6 +30,23 @@ export function AdminVerifierTools() {
   const [reassignCampaignId, setReassignCampaignId] = useState('');
   const [reassignTo, setReassignTo] = useState('');
   const [lastAction, setLastAction] = useState<'register' | 'remove' | 'reassign'>('register');
+
+  useEffect(() => {
+    let cancelled = false;
+    getAdminAddress()
+      .then((addr) => {
+        if (!cancelled) setAdminAddress(addr);
+      })
+      .catch(() => {
+        if (!cancelled) setAdminAddress(config.adminAddress.trim() || null);
+      })
+      .finally(() => {
+        if (!cancelled) setAdminLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadVerifiers = async () => {
     try {
@@ -54,16 +75,46 @@ export function AdminVerifierTools() {
     };
   }, []);
 
+  const retryApplications = async () => {
+    setLoading(true);
+    setApplicationsFailed(false);
+    try {
+      const data = await api.verifierApplications();
+      setApplications(data.items ?? []);
+      setApplicationsFailed(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        // A 404 indicates the endpoint is not available or empty; treat as empty queue.
+        setApplications([]);
+        setApplicationsFailed(false);
+      } else {
+        setApplicationsFailed(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     api
       .verifierApplications()
       .then((data) => {
-        if (!cancelled) setApplications(data.items ?? []);
+        if (!cancelled) {
+          setApplications(data.items ?? []);
+          setApplicationsFailed(false);
+        }
       })
-      // The pending list endpoint may not exist yet. Show an empty queue instead.
-      .catch(() => {
-        if (!cancelled) setApplications([]);
+      .catch((err) => {
+        if (!cancelled) {
+          if (err instanceof ApiError && err.status === 404) {
+            // A 404 indicates the endpoint is not available or empty; treat as empty queue.
+            setApplications([]);
+            setApplicationsFailed(false);
+          } else {
+            setApplicationsFailed(true);
+          }
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -138,12 +189,11 @@ export function AdminVerifierTools() {
     reassign: 'Campaign reassigned on chain.',
   }[lastAction];
 
-  // Determine admin authorization status
-  const configuredAdmin = config.adminAddress;
+  // Determine admin authorization status: contract admin first, env fallback, or null if neither
   const isConnected = wallet.status === 'connected' && Boolean(address);
   const isAdmin =
     isConnected &&
-    (!configuredAdmin || (address && address.toLowerCase() === configuredAdmin.toLowerCase()));
+    Boolean(adminAddress && address && address.toLowerCase() === adminAddress.toLowerCase());
 
   return (
     <Container className="pt-12 pb-20">
@@ -177,13 +227,22 @@ export function AdminVerifierTools() {
         </div>
       )}
 
-      {isConnected && !isAdmin && (
+      {isConnected && !isAdmin && !adminLoading && (
         <div className="mt-8">
           <Notice title="Unauthorized wallet" tone="danger">
-            The connected wallet (
-            <span className="font-mono">{shortAddress(address ?? '', 6)}</span>) is not configured
-            as the Aidline admin. Please switch to the authorized admin wallet to manage verifier
-            registrations.
+            {adminAddress ? (
+              <>
+                The connected wallet (
+                <span className="font-mono">{shortAddress(address ?? '', 6)}</span>) is not
+                configured as the Aidline admin. Please switch to the authorized admin wallet to
+                manage verifier registrations.
+              </>
+            ) : (
+              <>
+                No admin address is configured on the contract or in the environment. Admin tools
+                are unavailable.
+              </>
+            )}
           </Notice>
         </div>
       )}
@@ -197,7 +256,20 @@ export function AdminVerifierTools() {
               verification privileges.
             </p>
 
-            {loading ? (
+            {applicationsFailed ? (
+              <div className="mt-6 space-y-4">
+                <Notice title="Applications could not be loaded" tone="danger">
+                  The Aidline API is not responding or rejected the request.
+                </Notice>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void retryApplications()}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : loading ? (
               <p className="mt-6 py-6 text-ink-muted">Loading pending applications...</p>
             ) : applications.length === 0 ? (
               <div className="mt-6 border-y border-rule py-8">
