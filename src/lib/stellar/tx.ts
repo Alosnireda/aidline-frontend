@@ -27,7 +27,8 @@ const server = () =>
  * Builds a contract call, simulates it to get the footprint and fee, asks the
  * wallet to sign, submits it and waits until the ledger includes it.
  */
-export async function invoke<T = unknown>(
+export async function invokeContract<T = unknown>(
+  contractId: string,
   source: string,
   method: string,
   args: xdr.ScVal[],
@@ -42,7 +43,7 @@ export async function invoke<T = unknown>(
     fee: BASE_FEE,
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(new Contract(config.contractId).call(method, ...args))
+    .addOperation(new Contract(contractId).call(method, ...args))
     .setTimeout(120)
     .build();
 
@@ -70,6 +71,18 @@ export async function invoke<T = unknown>(
   return { hash: sent.hash, value };
 }
 
+export function invoke<T = unknown>(
+  source: string,
+  method: string,
+  args: xdr.ScVal[],
+  sign: Signer,
+  onStatus?: (
+    status: 'signing' | 'submitting' | 'confirming' | { phase: 'prepared'; fee: string },
+  ) => void,
+): Promise<TxResult<T>> {
+  return invokeContract<T>(config.contractId, source, method, args, sign, onStatus);
+}
+
 /**
  * Polls until the transaction leaves NOT_FOUND. Network errors are retried:
  * once submitted, a transaction must not be reported as failed because of a
@@ -94,6 +107,7 @@ async function waitForResult(rpcServer: rpc.Server, hash: string, attempts = 40)
 }
 
 const addr = (a: string) => new Address(a).toScVal();
+const u32 = (n: number) => nativeToScVal(n, { type: 'u32' });
 const u64 = (n: bigint | string | number) => nativeToScVal(BigInt(n), { type: 'u64' });
 const i128 = (n: bigint | string) => nativeToScVal(BigInt(n), { type: 'i128' });
 const str = (s: string) => nativeToScVal(s, { type: 'string' });
@@ -109,6 +123,39 @@ export const aidline = {
     sign: Signer,
     on?: (s: Status) => void,
   ) => invoke(donor, 'donate', [addr(donor), u64(campaignId), i128(amount)], sign, on),
+
+  /** Approves the Aidline contract to pull up to `amount` tokens for pledges. */
+  approveToken: async (
+    donor: string,
+    amount: bigint,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => {
+    const latest = await server().getLatestLedger();
+    // ~30 days on Stellar (~5s per ledger)
+    const expirationLedger = latest.sequence + 518_400;
+    return invokeContract(
+      config.tokenId,
+      donor,
+      'approve',
+      [addr(donor), addr(config.contractId), i128(amount), u32(expirationLedger)],
+      sign,
+      on,
+    );
+  },
+
+  /** Creates a pledge whose funds are pulled proportionally as milestones are approved. */
+  createPledge: (
+    donor: string,
+    campaignId: string,
+    pledgedAmount: bigint,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke<bigint>(donor, 'create_pledge', [addr(donor), u64(campaignId), i128(pledgedAmount)], sign, on),
+
+  /** Cancels an active pledge so no further milestones pull from it. */
+  cancelPledge: (donor: string, pledgeId: string | bigint, sign: Signer, on?: (s: Status) => void) =>
+    invoke(donor, 'cancel_pledge', [addr(donor), u64(pledgeId)], sign, on),
 
   refund: (donor: string, campaignId: string, sign: Signer, on?: (s: Status) => void) =>
     invoke<bigint>(donor, 'refund', [addr(donor), u64(campaignId)], sign, on),
@@ -169,4 +216,24 @@ export const aidline = {
     sign: Signer,
     on?: (s: Status) => void,
   ) => invoke(admin, 'reassign_verifier', [u64(campaignId), addr(newVerifier)], sign, on),
+
+  /** Posts a bond and registers `verifier` without waiting for admin approval. */
+  registerWithBond: (
+    verifier: string,
+    bondAmount: bigint,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke(verifier, 'register_with_bond', [addr(verifier), i128(bondAmount)], sign, on),
+
+  /** Deregisters a verifier and starts the bond withdrawal delay countdown. */
+  deregisterVerifier: (
+    caller: string,
+    verifier: string,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke(caller, 'deregister_verifier', [addr(caller), addr(verifier)], sign, on),
+
+  /** Withdraws a deregistered verifier's remaining bond after the delay has elapsed. */
+  withdrawBond: (verifier: string, sign: Signer, on?: (s: Status) => void) =>
+    invoke<bigint>(verifier, 'withdraw_bond', [addr(verifier)], sign, on),
 };

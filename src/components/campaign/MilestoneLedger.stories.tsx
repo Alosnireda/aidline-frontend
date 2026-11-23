@@ -78,3 +78,17 @@ export const ActiveCampaign: Story = {
     verifierName: 'Red Relief Network',
   },
 };
+
+export const EmergencyWithFastTrackAdvance: Story = {
+  args: {
+    campaign: {
+      ...sampleCampaign,
+      emergencyAdvance: {
+        amount: '200000000',
+        releasedAt: '2026-09-05T09:15:00Z',
+        txHash: 'f1e2d3c4b5a678901234567890abcdef1234567890abcdef1234567890abcdef',
+      },
+    },
+    verifierName: 'Red Relief Network',
+  },
+};

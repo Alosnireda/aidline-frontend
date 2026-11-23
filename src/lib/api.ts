@@ -55,8 +55,16 @@ export interface Milestone {
   proof: Proof | null;
 }
 
+export interface EmergencyAdvance {
+  amount: string;
+  releasedAt: string | null;
+  txHash: string | null;
+}
+
 export interface CampaignDetail extends Omit<Campaign, 'milestones'> {
   milestones: Milestone[];
+  emergencyAdvance?: EmergencyAdvance | null;
+  sponsor?: string | null;
 }
 
 export interface Donation {

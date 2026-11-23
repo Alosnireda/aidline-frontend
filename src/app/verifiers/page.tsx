@@ -1,18 +1,24 @@
 import type { Metadata } from 'next';
 
 import { VerifierApplicationForm } from '@/components/forms/VerifierApplicationForm';
+import { VerifierBondPanel } from '@/components/forms/VerifierBondPanel';
 import { Container } from '@/components/ui/Container';
 import { Notice } from '@/components/ui/Notice';
 import { api } from '@/lib/api';
 import { explorer } from '@/lib/config';
 import { shortAddress } from '@/lib/format';
 import { safe } from '@/lib/safe';
+import { getBondRequirement, getBondWithdrawDelay } from '@/lib/stellar/balance';
 import { safeExternalUrl } from '@/lib/url';
 
 export const metadata: Metadata = { title: 'Verifiers' };
 
 export default async function VerifiersPage() {
-  const verifiers = await safe(api.verifiers);
+  const [verifiers, bondRequirement, bondWithdrawDelay] = await Promise.all([
+    safe(api.verifiers),
+    safe(getBondRequirement),
+    safe(getBondWithdrawDelay),
+  ]);
   return (
     <Container className="pt-12">
       <p className="kicker">Verifiers</p>
@@ -74,6 +80,26 @@ export default async function VerifiersPage() {
             })}
           </ul>
         )}
+      </section>
+
+      <section
+        id="bond"
+        className="mt-20 grid scroll-mt-24 gap-10 border-t-2 border-ink pt-8 lg:grid-cols-12"
+      >
+        <div className="lg:col-span-4">
+          <p className="kicker">Bonded registration</p>
+          <h2 className="mt-3 text-[2rem]">Register with a bond</h2>
+          <p className="mt-4 text-[0.9375rem]">
+            When a bond requirement is set, you can post the required bond to register immediately
+            without waiting for admin approval, or manage and withdraw an existing bond.
+          </p>
+        </div>
+        <div className="lg:col-span-7 lg:col-start-6">
+          <VerifierBondPanel
+            initialRequirement={(bondRequirement ?? 0n).toString()}
+            initialWithdrawDelay={bondWithdrawDelay ?? 0}
+          />
+        </div>
       </section>
 
       <section
