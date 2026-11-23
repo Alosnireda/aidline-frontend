@@ -100,6 +100,15 @@ export const CancelledWithRefunds: Story = {
   },
 };
 
+export const CardWithPhotoCover: Story = {
+  args: {
+    campaign: {
+      ...sampleEmergencyCampaign,
+      id: '4',
+      metadata: {
+        ...sampleEmergencyCampaign.metadata!,
+        imageUrl:
+          'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80',
 export const BrokenPhotoFallbackCard: Story = {
   args: {
     campaign: {

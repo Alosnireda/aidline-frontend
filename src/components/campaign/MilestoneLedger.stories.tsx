@@ -92,3 +92,56 @@ export const EmergencyWithFastTrackAdvance: Story = {
     verifierName: 'Red Relief Network',
   },
 };
+
+export const ReleasedWithoutTxHash: Story = {
+  args: {
+    campaign: {
+      ...sampleCampaign,
+      milestones: [
+        {
+          ...sampleCampaign.milestones[0]!,
+          txHash: null,
+        },
+        sampleCampaign.milestones[1]!,
+        sampleCampaign.milestones[2]!,
+      ],
+    },
+    verifierName: 'Red Relief Network',
+  },
+};
+
+export const EscrowCoversNextMilestone: Story = {
+  args: {
+    campaign: {
+      ...sampleCampaign,
+      raised: '600000000',
+      released: '300000000',
+      milestonesReleased: 1,
+    },
+    verifierName: 'Red Relief Network',
+  },
+};
+
+export const EscrowUnderfunded: Story = {
+  args: {
+    campaign: {
+      ...sampleCampaign,
+      raised: '300000000',
+      released: '300000000',
+      milestonesReleased: 1,
+    },
+    verifierName: 'Red Relief Network',
+  },
+};
+
+export const EscrowCoversAllMilestones: Story = {
+  args: {
+    campaign: {
+      ...sampleCampaign,
+      raised: '1000000000',
+      released: '300000000',
+      milestonesReleased: 1,
+    },
+    verifierName: 'Red Relief Network',
+  },
+};
