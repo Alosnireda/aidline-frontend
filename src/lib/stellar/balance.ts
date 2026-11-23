@@ -129,3 +129,37 @@ export async function getPledge(pledgeId: string | bigint): Promise<Pledge | nul
     active: Boolean(r.active),
   };
 }
+
+export interface SponsorPoolData {
+  sponsor: string;
+  campaignId: string;
+  ratioBps: number;
+  cap: bigint;
+  deposited: bigint;
+  remaining: bigint;
+  matched: bigint;
+}
+
+/** Reads the on-chain `SponsorPool` for `campaignId` and `sponsor`, or `null` if none exists. */
+export async function getSponsorPool(
+  campaignId: string | bigint,
+  sponsor: string,
+): Promise<SponsorPoolData | null> {
+  const raw = await simulateRead(
+    config.contractId,
+    'get_sponsor_pool',
+    nativeToScVal(BigInt(campaignId), { type: 'u64' }),
+    new Address(sponsor).toScVal(),
+  );
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    sponsor: String(r.sponsor),
+    campaignId: String(r.campaign_id),
+    ratioBps: Number(r.ratio_bps),
+    cap: BigInt(r.cap as bigint | number | string),
+    deposited: BigInt(r.deposited as bigint | number | string),
+    remaining: BigInt(r.remaining as bigint | number | string),
+    matched: BigInt(r.matched as bigint | number | string),
+  };
+}

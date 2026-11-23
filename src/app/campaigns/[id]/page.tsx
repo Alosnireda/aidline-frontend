@@ -9,12 +9,14 @@ import { FundingBar } from '@/components/campaign/FundingBar';
 import { KIND, STATUS_LABEL } from '@/components/campaign/kind';
 import { MilestoneLedger } from '@/components/campaign/MilestoneLedger';
 import { RefundPanel } from '@/components/campaign/RefundPanel';
+import { SponsorPool } from '@/components/campaign/SponsorPool';
 import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
 import { explorer, config } from '@/lib/config';
 import { deadlineLabel, formatAmount, formatDate, shortAddress } from '@/lib/format';
 import { safe } from '@/lib/safe';
+import { getSponsorPool } from '@/lib/stellar/balance';
 
 async function load(id: string) {
   if (!/^\d+$/.test(id)) notFound();
@@ -38,7 +40,14 @@ export async function generateMetadata(props: PageProps<'/campaigns/[id]'>): Pro
 export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) {
   const { id } = await props.params;
   const [campaign, donations] = await Promise.all([load(id), safe(() => api.donations(id, 10))]);
-  const verifier = await safe(() => api.verifier(campaign.verifier));
+  const sponsorCandidates = [campaign.sponsor, campaign.creator].filter(
+    (v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i,
+  );
+  const [verifier, ...pools] = await Promise.all([
+    safe(() => api.verifier(campaign.verifier)),
+    ...sponsorCandidates.map((sponsor) => safe(() => getSponsorPool(campaign.id, sponsor))),
+  ]);
+  const sponsorPool = pools.find((p) => p !== null) ?? null;
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
   const refundable = campaign.status === 'cancelled' || campaign.status === 'expired';
@@ -172,6 +181,8 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
                 </span>
               </p>
             </section>
+
+            <SponsorPool pool={sponsorPool} />
 
             <section>
               {campaign.status === 'active' && <DonatePanel campaign={campaign} />}
