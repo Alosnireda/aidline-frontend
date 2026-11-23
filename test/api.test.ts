@@ -75,6 +75,22 @@ describe('api requests', () => {
     expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe(`${config.apiUrl}/campaigns`);
   });
 
+  it('paginates donations with limit and offset', async () => {
+    const fetchMock = respond(200, { items: [], total: 0 });
+    await api.donations('123', 10, 20);
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe(
+      `${config.apiUrl}/campaigns/123/donations?limit=10&offset=20`,
+    );
+  });
+
+  it('accepts an object of params for donations', async () => {
+    const fetchMock = respond(200, { items: [], total: 0 });
+    await api.donations('123', { limit: 10, offset: 30 });
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe(
+      `${config.apiUrl}/campaigns/123/donations?limit=10&offset=30`,
+    );
+  });
+
   it('posts JSON for metadata', async () => {
     const fetchMock = respond(201, { id: 'abc', uri: 'http://x/metadata/abc' });
     await api.createMetadata({ title: 'T', summary: 'S', description: 'D', location: 'L' });

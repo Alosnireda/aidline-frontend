@@ -109,6 +109,13 @@ export const CardWithPhotoCover: Story = {
         ...sampleEmergencyCampaign.metadata!,
         imageUrl:
           'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=80',
+export const BrokenPhotoFallbackCard: Story = {
+  args: {
+    campaign: {
+      ...sampleEmergencyCampaign,
+      metadata: {
+        ...sampleEmergencyCampaign.metadata!,
+        imageUrl: 'https://example.invalid/broken-image.jpg',
       },
     },
   },

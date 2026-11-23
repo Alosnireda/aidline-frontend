@@ -8,6 +8,7 @@ import {
   parseAmount,
   percent,
   shortAddress,
+  splitParagraphs,
 } from '@/lib/format';
 
 describe('formatAmount', () => {
@@ -92,5 +93,26 @@ describe('deadlineLabel', () => {
   });
   it('shows the end date once passed', () => {
     expect(deadlineLabel('2026-10-01T00:00:00Z', now)).toBe('Ended 01 Oct 2026');
+  });
+});
+
+describe('splitParagraphs', () => {
+  it('splits on double newlines and trims whitespace', () => {
+    const text = 'First paragraph.\n\nSecond paragraph.\n\nThird paragraph.';
+    expect(splitParagraphs(text)).toEqual([
+      'First paragraph.',
+      'Second paragraph.',
+      'Third paragraph.',
+    ]);
+  });
+
+  it('handles multiple consecutive newlines and filters empty lines', () => {
+    const text = 'First paragraph.\n\n\n\nSecond paragraph.\n\n';
+    expect(splitParagraphs(text)).toEqual(['First paragraph.', 'Second paragraph.']);
+  });
+
+  it('returns empty array for empty string or only whitespace', () => {
+    expect(splitParagraphs('')).toEqual([]);
+    expect(splitParagraphs('   \n\n   ')).toEqual([]);
   });
 });
