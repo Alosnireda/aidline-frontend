@@ -72,8 +72,8 @@ export default function AdminVerifiersPage() {
     <Container className="pt-12 pb-20">
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <div>
-          <p className="kicker">Admin Control</p>
-          <h1 className="mt-3 text-[2.75rem]">Register Verifiers</h1>
+          <p className="kicker">Admin control</p>
+          <h1 className="mt-3 text-[2.75rem]">Register verifiers</h1>
         </div>
         {isConnected && address && (
           <p className="text-sm text-ink-muted figure">
@@ -114,7 +114,7 @@ export default function AdminVerifiersPage() {
       {isConnected && isAdmin && (
         <div className="mt-10 space-y-12">
           <section className="border-t border-rule pt-8">
-            <h2 className="text-[1.75rem]">Pending Verifier Applications</h2>
+            <h2 className="text-[1.75rem]">Pending verifier applications</h2>
             <p className="mt-2 text-sm text-ink-muted">
               Organizations that have submitted a verification request. Registering grants on-chain
               verification privileges.
@@ -167,7 +167,7 @@ export default function AdminVerifiersPage() {
                           disabled={busy}
                           onClick={() => void handleRegister(app.address)}
                         >
-                          {isProcessing ? 'Registering...' : 'Register as Verifier'}
+                          {isProcessing ? 'Registering...' : 'Register as verifier'}
                         </button>
                       </div>
                     </li>
@@ -178,7 +178,7 @@ export default function AdminVerifiersPage() {
           </section>
 
           <section className="border-t border-rule pt-8 max-w-xl">
-            <h2 className="text-[1.5rem]">Manual Verifier Registration</h2>
+            <h2 className="text-[1.5rem]">Manual verifier registration</h2>
             <p className="mt-2 text-sm text-ink-muted">
               Register a verifier directly by specifying their Stellar account address.
             </p>
@@ -213,7 +213,7 @@ export default function AdminVerifiersPage() {
               >
                 {busy && activeAddress === customAddress.trim()
                   ? 'Registering...'
-                  : 'Register Verifier Address'}
+                  : 'Register verifier address'}
               </button>
             </form>
           </section>
