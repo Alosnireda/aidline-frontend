@@ -13,7 +13,13 @@ import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
 import { explorer, config } from '@/lib/config';
-import { deadlineLabel, formatAmount, formatDate, shortAddress } from '@/lib/format';
+import {
+  deadlineLabel,
+  formatAmount,
+  formatDate,
+  shortAddress,
+  splitParagraphs,
+} from '@/lib/format';
 import { safe } from '@/lib/safe';
 
 async function load(id: string) {
@@ -106,7 +112,7 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
             <section className="mt-12">
               <p className="kicker">The situation</p>
               <div className="mt-4 max-w-[68ch] space-y-4 text-[1.0625rem]">
-                {m.description.split(/\n{2,}/).map((para, i) => (
+                {splitParagraphs(m.description).map((para, i) => (
                   <p key={i}>{para}</p>
                 ))}
               </div>

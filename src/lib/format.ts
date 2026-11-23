@@ -64,3 +64,13 @@ export function deadlineLabel(iso: string, now = new Date()): string {
   if (days === 0) return 'Ends today';
   return `${days} day${days === 1 ? '' : 's'} left`;
 }
+
+/**
+ * Splits campaign description text into paragraphs on blank lines.
+ */
+export function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}

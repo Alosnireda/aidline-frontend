@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { CampaignCover } from '@/components/campaign/CampaignCover';
 import { KIND } from '@/components/campaign/kind';
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, ApiError, type CampaignKind, type Verifier } from '@/lib/api';
 import { config } from '@/lib/config';
-import { formatAmount, parseAmount, shortAddress } from '@/lib/format';
+import { formatAmount, parseAmount, shortAddress, splitParagraphs } from '@/lib/format';
 import { describeError } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
@@ -29,6 +30,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
   const [location, setLocation] = useState('');
   const [organizer, setOrganizer] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [preview, setPreview] = useState(false);
   // null until edited, so it follows the connected wallet by default.
   const [beneficiaryInput, setBeneficiary] = useState<string | null>(null);
   const [verifier, setVerifier] = useState(verifiers[0]?.address ?? '');
@@ -151,7 +153,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           {(['emergency', 'climate'] as const).map((k) => (
             <label
               key={k}
-              className={`cursor-pointer border p-4 ${kind === k ? `${KIND[k].border} ${KIND[k].wash}` : 'border-rule'}`}
+              className={`cursor-pointer border p-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink has-[:focus-visible]:outline-offset-2 ${kind === k ? `${KIND[k].border} ${KIND[k].wash}` : 'border-rule'}`}
             >
               <input
                 type="radio"
@@ -173,96 +175,161 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
       </fieldset>
 
       <fieldset className="space-y-5">
-        <legend className="kicker mb-4">2. The story donors will read</legend>
-        <div>
-          <label className="label" htmlFor="title">
-            Title
-          </label>
-          <input
-            id="title"
-            className="field"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={120}
-            placeholder="Clean water after flooding in Les Cayes"
-          />
-          {err('title')}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <legend className="kicker">2. The story donors will read</legend>
+          <button
+            type="button"
+            className="btn btn-secondary text-xs"
+            onClick={() => setPreview((p) => !p)}
+          >
+            {preview ? 'Edit story' : 'Preview'}
+          </button>
         </div>
-        <div>
-          <label className="label" htmlFor="summary">
-            One line summary
-          </label>
-          <input
-            id="summary"
-            className="field"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            maxLength={280}
-          />
-          {err('summary')}
-        </div>
-        <div>
-          <label className="label" htmlFor="location">
-            Location
-          </label>
-          <input
-            id="location"
-            className="field"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Les Cayes, Haiti"
-            maxLength={120}
-          />
-          {err('location')}
-        </div>
-        <div>
-          <label className="label" htmlFor="organizer">
-            Raised by <span className="font-normal text-ink-muted">(optional)</span>
-          </label>
-          <input
-            id="organizer"
-            className="field"
-            value={organizer}
-            onChange={(e) => setOrganizer(e.target.value)}
-            placeholder="Haitian community association, Montreal"
-            maxLength={120}
-          />
-          <p className="hint">
-            Your group or community abroad. Donors trust campaigns they can place.
-          </p>
-          {err('organizer')}
-        </div>
-        <div>
-          <label className="label" htmlFor="description">
-            What is happening and what the money will do
-          </label>
-          <textarea
-            id="description"
-            className="field min-h-40"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={10000}
-          />
-          <p className="hint">Leave a blank line between paragraphs.</p>
-          {err('description')}
-        </div>
-        <div>
-          <label className="label" htmlFor="image">
-            Cover photo URL <span className="font-normal text-ink-muted">(optional)</span>
-          </label>
-          <input
-            id="image"
-            type="url"
-            className="field"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://"
-          />
-          <p className="hint">
-            A real photo of the place or the work. Without one, a cover is drawn from the location.
-          </p>
-          {err('imageUrl')}
-        </div>
+
+        {preview ? (
+          <div className="rounded border border-rule p-6 space-y-6">
+            <div>
+              <p className="text-[0.75rem] font-medium uppercase tracking-[0.08em]">
+                <span className={KIND[kind].text}>{KIND[kind].label}</span>
+                <span className="text-rule"> / </span>
+                <span className="text-ink-muted">{location.trim() || 'Unknown location'}</span>
+              </p>
+              <h1 className="mt-4 text-[2.5rem] sm:text-[3.25rem]">
+                {title.trim() || 'Campaign title'}
+              </h1>
+              {summary.trim() && (
+                <p className="mt-5 max-w-[40rem] text-[1.1875rem] text-ink-soft">
+                  {summary.trim()}
+                </p>
+              )}
+              {organizer.trim() && (
+                <p className="mt-4 text-[0.9375rem] text-ink-muted">
+                  Raised by <span className="text-ink">{organizer.trim()}</span>
+                </p>
+              )}
+            </div>
+
+            <CampaignCover
+              campaign={{
+                kind,
+                metadata: {
+                  title: title.trim(),
+                  summary: summary.trim(),
+                  location: location.trim(),
+                  organizer: organizer.trim() || null,
+                  category: null,
+                  imageUrl: imageUrl.trim() || null,
+                  description: description.trim(),
+                },
+              }}
+              className="aspect-video w-full"
+            />
+
+            {description.trim() ? (
+              <section className="mt-12">
+                <p className="kicker">The situation</p>
+                <div className="mt-4 max-w-[68ch] space-y-4 text-[1.0625rem]">
+                  {splitParagraphs(description).map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <div>
+              <label className="label" htmlFor="title">
+                Title
+              </label>
+              <input
+                id="title"
+                className="field"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={120}
+                placeholder="Clean water after flooding in Les Cayes"
+              />
+              {err('title')}
+            </div>
+            <div>
+              <label className="label" htmlFor="summary">
+                One line summary
+              </label>
+              <input
+                id="summary"
+                className="field"
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                maxLength={280}
+              />
+              {err('summary')}
+            </div>
+            <div>
+              <label className="label" htmlFor="location">
+                Location
+              </label>
+              <input
+                id="location"
+                className="field"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Les Cayes, Haiti"
+                maxLength={120}
+              />
+              {err('location')}
+            </div>
+            <div>
+              <label className="label" htmlFor="organizer">
+                Raised by <span className="font-normal text-ink-muted">(optional)</span>
+              </label>
+              <input
+                id="organizer"
+                className="field"
+                value={organizer}
+                onChange={(e) => setOrganizer(e.target.value)}
+                placeholder="Haitian community association, Montreal"
+                maxLength={120}
+              />
+              <p className="hint">
+                Your group or community abroad. Donors trust campaigns they can place.
+              </p>
+              {err('organizer')}
+            </div>
+            <div>
+              <label className="label" htmlFor="description">
+                What is happening and what the money will do
+              </label>
+              <textarea
+                id="description"
+                className="field min-h-40"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={10000}
+              />
+              <p className="hint">Leave a blank line between paragraphs.</p>
+              {err('description')}
+            </div>
+            <div>
+              <label className="label" htmlFor="image">
+                Cover photo URL <span className="font-normal text-ink-muted">(optional)</span>
+              </label>
+              <input
+                id="image"
+                type="url"
+                className="field"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://"
+              />
+              <p className="hint">
+                A real photo of the place or the work. Without one, a cover is drawn from the
+                location.
+              </p>
+              {err('imageUrl')}
+            </div>
+          </>
+        )}
       </fieldset>
 
       <fieldset className="space-y-5">
