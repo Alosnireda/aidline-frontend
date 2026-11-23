@@ -54,7 +54,9 @@ export function MilestoneLedger({
             </p>
             {(advance.releasedAt || advance.txHash) && (
               <p className="mt-2 text-[0.8125rem] text-ink-muted">
-                {advance.releasedAt ? `Released ${formatDate(advance.releasedAt)}` : 'Advance released'}
+                {advance.releasedAt
+                  ? `Released ${formatDate(advance.releasedAt)}`
+                  : 'Advance released'}
                 {advance.releasedAt && advance.txHash && ' · '}
                 {advance.txHash && <TxLink hash={advance.txHash} />}
               </p>
@@ -108,12 +110,13 @@ export function MilestoneLedger({
                       <p className="max-w-prose">{m.proof.note}</p>
                       {image.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {image.map((f) => (
+                          {image.map((f, i) => (
                             <a key={f.url} href={f.url} target="_blank" rel="noreferrer">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={f.url}
-                                alt={m.proof?.note ?? f.name}
+                                alt={`Proof photo ${i + 1} of ${image.length} for milestone ${m.index + 1}`}
+                                loading="lazy"
                                 className="h-24 w-36 border border-rule object-cover"
                               />
                             </a>

@@ -27,7 +27,8 @@ export function ReleaseFeed({ releases }: { releases: Release[] | null }) {
   return (
     <ol className="border-t border-rule">
       {releases.map((r) => {
-        const image = r.proof?.files.find((f) => f.type.startsWith('image/'));
+        const imageFiles = r.proof?.files.filter((f) => f.type.startsWith('image/')) ?? [];
+        const image = imageFiles[0];
         return (
           <li
             key={`${r.campaignId}-${r.index}`}
@@ -63,7 +64,8 @@ export function ReleaseFeed({ releases }: { releases: Release[] | null }) {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={image.url}
-                alt={r.proof?.note ?? 'Milestone proof'}
+                alt={`Proof photo 1 of ${imageFiles.length} for milestone ${r.index + 1}`}
+                loading="lazy"
                 className="hidden h-20 w-28 object-cover md:block"
               />
             ) : (
