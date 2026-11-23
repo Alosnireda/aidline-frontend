@@ -8,6 +8,7 @@ import { DonatePanel } from '@/components/campaign/DonatePanel';
 import { FundingBar } from '@/components/campaign/FundingBar';
 import { KIND, STATUS_LABEL } from '@/components/campaign/kind';
 import { MilestoneLedger } from '@/components/campaign/MilestoneLedger';
+import { RecentDonations } from '@/components/campaign/RecentDonations';
 import { RefundPanel } from '@/components/campaign/RefundPanel';
 import { SponsorPool } from '@/components/campaign/SponsorPool';
 import { VerifierPanel } from '@/components/campaign/VerifierPanel';
@@ -145,32 +146,13 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
           </section>
 
           <section className="mt-14">
-            <p className="kicker">Recent donations</p>
-            {donations && donations.items.length > 0 ? (
-              <ul className="mt-4 border-t border-rule" aria-label="Recent donations">
-                {donations.items.map((d) => (
-                  <li
-                    key={d.txHash}
-                    className="figure flex justify-between gap-4 border-b border-rule py-3 text-sm"
-                  >
-                    <Link href={`/donors/${d.donor}`} className="link">
-                      <span className="sr-only">Donor: </span>
-                      {shortAddress(d.donor, 6)}
-                    </Link>
-                    <span className="text-ink-muted">
-                      <span className="sr-only">Date: </span>
-                      {formatDate(d.createdAt)}
-                    </span>
-                    <span className="text-ink">
-                      <span className="sr-only">Amount: </span>
-                      {formatAmount(d.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-ink-muted">No donations yet. Yours could be the first.</p>
-            )}
+            <RecentDonations
+              campaignId={campaign.id}
+              initialDonations={donations ? donations.items : null}
+              initialTotal={
+                donations?.total ?? (campaign.donorCount > 0 ? campaign.donorCount : undefined)
+              }
+            />
           </section>
         </div>
 
