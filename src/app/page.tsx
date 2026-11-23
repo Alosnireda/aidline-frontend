@@ -78,7 +78,7 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="mt-10">
-            {releases ? <ReleaseFeed releases={releases.items} /> : <ReleaseFeed releases={[]} />}
+            <ReleaseFeed releases={releases ? releases.items : null} />
           </div>
         </Container>
       </section>
@@ -93,7 +93,17 @@ export default async function HomePage() {
             All campaigns
           </Link>
         </div>
-        {campaigns && campaigns.items.length > 0 ? (
+        {!campaigns ? (
+          <div className="mt-10">
+            <Notice title="Campaigns are unavailable">
+              The Aidline API could not be reached. Open campaigns will show again once it is back.{' '}
+              <Link href="/campaigns" className="link">
+                Try the campaigns page
+              </Link>
+              .
+            </Notice>
+          </div>
+        ) : campaigns.items.length > 0 ? (
           <div className="mt-10 grid gap-x-8 gap-y-14 md:grid-cols-2 lg:grid-cols-3">
             {campaigns.items.map((c) => (
               <CampaignCard key={c.id} campaign={c} />

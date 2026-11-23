@@ -10,6 +10,7 @@ import { api, type VerifierApplication } from '@/lib/api';
 import { config, explorer } from '@/lib/config';
 import { shortAddress } from '@/lib/format';
 import { aidline } from '@/lib/stellar/tx';
+import { safeExternalUrl } from '@/lib/url';
 import { useTx } from '@/lib/useTx';
 
 export default function AdminVerifiersPage() {
@@ -152,8 +153,13 @@ export default function AdminVerifiersPage() {
                               {app.address}
                             </a>
                           </span>
-                          {app.website && (
-                            <a href={app.website} target="_blank" rel="noreferrer" className="link">
+                          {safeExternalUrl(app.website) && (
+                            <a
+                              href={safeExternalUrl(app.website)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="link"
+                            >
                               Website
                             </a>
                           )}

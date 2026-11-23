@@ -3,6 +3,8 @@
 import { useId, useState } from 'react';
 
 import type { StatsHistoryPoint } from '@/lib/api';
+import { computeChartPoints, formatAxisValue, type ChartSnapshot } from '@/lib/chart';
+import { config } from '@/lib/config';
 import { formatAmount } from '@/lib/format';
 
 interface DonationReleaseChartProps {
@@ -11,20 +13,13 @@ interface DonationReleaseChartProps {
   totalReleased?: string;
 }
 
-interface ChartPoint {
-  date: string;
-  donated: string;
-  released: string;
-}
+type ChartPoint = ChartSnapshot;
 
 const shortDate = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   timeZone: 'UTC',
 });
-
-/** Missing values count as zero so one bad row cannot crash the page. */
-const toXlm = (stroops: string | undefined) => Number(BigInt(stroops ?? '0') / 10000000n);
 
 export function DonationReleaseChart({
   history,
@@ -56,24 +51,20 @@ export function DonationReleaseChart({
   const paddingTop = 20;
   const paddingBottom = 40;
 
-  const chartW = width - paddingLeft - paddingRight;
   const chartH = height - paddingTop - paddingBottom;
 
-  const maxVal = Math.max(...points.flatMap((p) => [toXlm(p.donated), toXlm(p.released)]), 100);
+  const { maxVal, plotted } = computeChartPoints(
+    points,
+    { width, height, paddingLeft, paddingRight, paddingTop, paddingBottom },
+    config.tokenDecimals,
+  );
 
-  const getX = (index: number) => paddingLeft + (index / (points.length - 1 || 1)) * chartW;
-
-  const getY = (valStr: string) => {
-    const val = toXlm(valStr);
-    return paddingTop + chartH - (val / maxVal) * chartH;
-  };
-
-  const donatedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.donated)}`)
+  const donatedPath = plotted
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.donatedY}`)
     .join(' ');
 
-  const releasedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.released)}`)
+  const releasedPath = plotted
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.releasedY}`)
     .join(' ');
 
   if (points.length === 0) return null;
@@ -125,10 +116,21 @@ export function DonationReleaseChart({
             role="img"
             aria-labelledby={`${titleId} ${descId}`}
           >
+            {/* Unit of the value axis, shown once */}
+            <text
+              x={paddingLeft - 8}
+              y={paddingTop - 8}
+              textAnchor="end"
+              fill="var(--ink-muted)"
+              className="font-mono text-[10px]"
+            >
+              {config.tokenSymbol}
+            </text>
+
             {/* Horizontal Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
               const y = paddingTop + chartH * (1 - ratio);
-              const val = Math.round(maxVal * ratio);
+              const val = formatAxisValue(maxVal * ratio);
               return (
                 <g key={ratio}>
                   <line
@@ -157,7 +159,7 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <text
                 key={p.date + i}
-                x={getX(i)}
+                x={plotted[i]!.x}
                 y={height - 12}
                 textAnchor="middle"
                 fill="var(--ink-muted)"
@@ -178,8 +180,8 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <circle
                 key={`donated-pt-${i}`}
-                cx={getX(i)}
-                cy={getY(p.donated)}
+                cx={plotted[i]!.x}
+                cy={plotted[i]!.donatedY}
                 r="3.5"
                 fill="var(--relief)"
               />
@@ -197,8 +199,8 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <rect
                 key={`released-pt-${i}`}
-                x={getX(i) - 3}
-                y={getY(p.released) - 3}
+                x={plotted[i]!.x - 3}
+                y={plotted[i]!.releasedY - 3}
                 width="6"
                 height="6"
                 fill="var(--paper)"
