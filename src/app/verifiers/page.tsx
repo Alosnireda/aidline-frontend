@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { explorer } from '@/lib/config';
 import { shortAddress } from '@/lib/format';
 import { safe } from '@/lib/safe';
+import { safeExternalUrl } from '@/lib/url';
 
 export const metadata: Metadata = { title: 'Verifiers' };
 
@@ -29,42 +30,56 @@ export default async function VerifiersPage() {
           <Notice title="Verifiers could not be loaded" tone="danger">
             The Aidline API is not responding.
           </Notice>
+        ) : verifiers.items.length === 0 ? (
+          <p className="border-y border-rule py-8 text-ink-muted">
+            No verifiers are registered yet. If your organisation can confirm work on the ground,{' '}
+            <a href="#apply" className="link">
+              apply below
+            </a>
+            .
+          </p>
         ) : (
           <ul className="border-t border-rule">
-            {verifiers.items.map((v) => (
-              <li
-                key={v.address}
-                className="grid gap-2 border-b border-rule py-6 md:grid-cols-[1fr_2fr_auto] md:gap-8"
-              >
-                <div>
-                  <p className="font-serif text-xl text-ink">{v.orgName ?? 'Unnamed verifier'}</p>
-                  {v.country && <p className="text-sm text-ink-muted">{v.country}</p>}
-                </div>
-                <p className="text-[0.9375rem]">
-                  {v.description ?? 'This verifier has not published a profile yet.'}
-                </p>
-                <div className="flex flex-col gap-1 text-sm md:items-end">
-                  <a
-                    href={explorer.account(v.address)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="link figure"
-                  >
-                    {shortAddress(v.address, 6)}
-                  </a>
-                  {v.website && (
-                    <a href={v.website} target="_blank" rel="noreferrer" className="link">
-                      Website
+            {verifiers.items.map((v) => {
+              const website = safeExternalUrl(v.website);
+              return (
+                <li
+                  key={v.address}
+                  className="grid gap-2 border-b border-rule py-6 md:grid-cols-[1fr_2fr_auto] md:gap-8"
+                >
+                  <div>
+                    <p className="font-serif text-xl text-ink">{v.orgName ?? 'Unnamed verifier'}</p>
+                    {v.country && <p className="text-sm text-ink-muted">{v.country}</p>}
+                  </div>
+                  <p className="text-[0.9375rem]">
+                    {v.description ?? 'This verifier has not published a profile yet.'}
+                  </p>
+                  <div className="flex flex-col gap-1 text-sm md:items-end">
+                    <a
+                      href={explorer.account(v.address)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="link figure"
+                    >
+                      {shortAddress(v.address, 6)}
                     </a>
-                  )}
-                </div>
-              </li>
-            ))}
+                    {website && (
+                      <a href={website} target="_blank" rel="noopener noreferrer" className="link">
+                        Website
+                      </a>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
-      <section className="mt-20 grid gap-10 border-t-2 border-ink pt-8 lg:grid-cols-12">
+      <section
+        id="apply"
+        className="mt-20 grid scroll-mt-24 gap-10 border-t-2 border-ink pt-8 lg:grid-cols-12"
+      >
         <div className="lg:col-span-4">
           <p className="kicker">Apply</p>
           <h2 className="mt-3 text-[2rem]">Verify campaigns in your region</h2>

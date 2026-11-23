@@ -3,6 +3,9 @@
 import { useId, useState } from 'react';
 
 import type { StatsHistoryPoint } from '@/lib/api';
+import { computeChartPoints, formatAxisValue, type ChartSnapshot } from '@/lib/chart';
+import { config } from '@/lib/config';
+import { labelIndices, tickLabel, toXlm } from '@/lib/chart';
 import { formatAmount } from '@/lib/format';
 
 interface DonationReleaseChartProps {
@@ -11,20 +14,13 @@ interface DonationReleaseChartProps {
   totalReleased?: string;
 }
 
-interface ChartPoint {
-  date: string;
-  donated: string;
-  released: string;
-}
+type ChartPoint = ChartSnapshot;
 
 const shortDate = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   timeZone: 'UTC',
 });
-
-/** Missing values count as zero so one bad row cannot crash the page. */
-const toXlm = (stroops: string | undefined) => Number(BigInt(stroops ?? '0') / 10000000n);
 
 export function DonationReleaseChart({
   history,
@@ -56,10 +52,16 @@ export function DonationReleaseChart({
   const paddingTop = 20;
   const paddingBottom = 40;
 
-  const chartW = width - paddingLeft - paddingRight;
   const chartH = height - paddingTop - paddingBottom;
 
-  const maxVal = Math.max(...points.flatMap((p) => [toXlm(p.donated), toXlm(p.released)]), 100);
+  const { maxVal, plotted } = computeChartPoints(
+    points,
+    { width, height, paddingLeft, paddingRight, paddingTop, paddingBottom },
+    config.tokenDecimals,
+  );
+  // Scale to the largest snapshot so testnet totals under 100 XLM still draw a
+  // readable line. Fall back to 1 only when every value is zero.
+  const maxVal = Math.max(1, ...points.flatMap((p) => [toXlm(p.donated), toXlm(p.released)]));
 
   const getX = (index: number) => paddingLeft + (index / (points.length - 1 || 1)) * chartW;
 
@@ -68,13 +70,17 @@ export function DonationReleaseChart({
     return paddingTop + chartH - (val / maxVal) * chartH;
   };
 
-  const donatedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.donated)}`)
+  const donatedPath = plotted
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.donatedY}`)
     .join(' ');
 
-  const releasedPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.released)}`)
+  const releasedPath = plotted
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.releasedY}`)
     .join(' ');
+
+  // Thin the date labels so a month of snapshots does not draw a solid strip
+  // of overlapping text. The first and last dates always stay.
+  const labelled = new Set(labelIndices(points.length));
 
   if (points.length === 0) return null;
 
@@ -82,22 +88,61 @@ export function DonationReleaseChart({
     <div className="border border-rule bg-paper-raised p-6 rounded-[2px] shadow-none">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-rule pb-4">
         <div>
-          <p className="kicker">Cumulative Momentum</p>
+          <p className="kicker">Cumulative momentum</p>
           <h3 className="mt-1 text-xl font-serif text-ink" id={titleId}>
-            Donations & Releases Over Time
+            Donations and releases over time
           </h3>
         </div>
 
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4 text-xs font-mono">
             <div className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-0.5 bg-relief" />
-              <span className="inline-block w-2 h-2 rounded-full bg-relief" />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 18 8"
+                className="h-2 w-[18px] overflow-visible"
+                fill="none"
+              >
+                <line
+                  x1="0"
+                  y1="4"
+                  x2="18"
+                  y2="4"
+                  stroke="var(--relief)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+                <circle cx="9" cy="4" r="3" fill="var(--relief)" />
+              </svg>
               <span className="text-ink">Donated</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-0.5 bg-ink border-dashed" />
-              <span className="inline-block w-2 h-2 border border-ink bg-paper" />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 18 8"
+                className="h-2 w-[18px] overflow-visible"
+                fill="none"
+              >
+                <line
+                  x1="0"
+                  y1="4"
+                  x2="18"
+                  y2="4"
+                  stroke="var(--ink)"
+                  strokeWidth="2"
+                  strokeDasharray="4 3"
+                  strokeLinecap="round"
+                />
+                <rect
+                  x="6"
+                  y="1"
+                  width="6"
+                  height="6"
+                  fill="var(--paper)"
+                  stroke="var(--ink)"
+                  strokeWidth="1.5"
+                />
+              </svg>
               <span className="text-ink font-medium">Released</span>
             </div>
           </div>
@@ -108,7 +153,7 @@ export function DonationReleaseChart({
             onClick={() => setShowTable((prev) => !prev)}
             aria-expanded={showTable}
           >
-            {showTable ? 'View Visual Chart' : 'View Data Table'}
+            {showTable ? 'View visual chart' : 'View data table'}
           </button>
         </div>
       </div>
@@ -125,10 +170,22 @@ export function DonationReleaseChart({
             role="img"
             aria-labelledby={`${titleId} ${descId}`}
           >
+            {/* Unit of the value axis, shown once */}
+            <text
+              x={paddingLeft - 8}
+              y={paddingTop - 8}
+              textAnchor="end"
+              fill="var(--ink-muted)"
+              className="font-mono text-[10px]"
+            >
+              {config.tokenSymbol}
+            </text>
+
             {/* Horizontal Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
               const y = paddingTop + chartH * (1 - ratio);
-              const val = Math.round(maxVal * ratio);
+              const val = formatAxisValue(maxVal * ratio);
+              const val = maxVal * ratio;
               return (
                 <g key={ratio}>
                   <line
@@ -147,7 +204,7 @@ export function DonationReleaseChart({
                     fill="var(--ink-muted)"
                     className="font-mono text-[10px]"
                   >
-                    {val}
+                    {tickLabel(val)}
                   </text>
                 </g>
               );
@@ -157,7 +214,7 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <text
                 key={p.date + i}
-                x={getX(i)}
+                x={plotted[i]!.x}
                 y={height - 12}
                 textAnchor="middle"
                 fill="var(--ink-muted)"
@@ -166,6 +223,20 @@ export function DonationReleaseChart({
                 {p.date}
               </text>
             ))}
+            {points.map((p, i) =>
+              labelled.has(i) ? (
+                <text
+                  key={p.date + i}
+                  x={getX(i)}
+                  y={height - 12}
+                  textAnchor="middle"
+                  fill="var(--ink-muted)"
+                  className="font-mono text-[11px]"
+                >
+                  {p.date}
+                </text>
+              ) : null,
+            )}
 
             {/* Donated Line (Relief color, solid line with circle dots) */}
             <path
@@ -178,8 +249,8 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <circle
                 key={`donated-pt-${i}`}
-                cx={getX(i)}
-                cy={getY(p.donated)}
+                cx={plotted[i]!.x}
+                cy={plotted[i]!.donatedY}
                 r="3.5"
                 fill="var(--relief)"
               />
@@ -197,8 +268,8 @@ export function DonationReleaseChart({
             {points.map((p, i) => (
               <rect
                 key={`released-pt-${i}`}
-                x={getX(i) - 3}
-                y={getY(p.released) - 3}
+                x={plotted[i]!.x - 3}
+                y={plotted[i]!.releasedY - 3}
                 width="6"
                 height="6"
                 fill="var(--paper)"
