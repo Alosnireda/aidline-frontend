@@ -11,34 +11,52 @@ interface Props {
   goal: string;
   raised: string;
   released: string;
+  refunded?: string;
   size?: 'sm' | 'lg';
   showFigures?: boolean;
 }
 
 /**
  * Three segments: released (solid), held in escrow (hatched), still needed
- * (empty). See DESIGN.md, "Funding bar".
+ * (empty). Refunded amounts are removed from escrow when provided. See DESIGN.md, "Funding bar".
  */
 export function FundingBar({
   kind,
   goal,
   raised,
   released,
+  refunded = '0',
   size = 'sm',
   showFigures = true,
 }: Props) {
   const { formatFiat } = useFiat();
   const k = KIND[kind];
-  const escrow = (BigInt(raised) - BigInt(released)).toString();
-  const needed = (BigInt(goal) - BigInt(raised)).toString();
-  const releasedPct = percent(released, goal);
-  const escrowPct = percent(escrow, goal);
+  const goalAmount = BigInt(goal);
+  const raisedAmount = BigInt(raised);
+  const releasedAmount = BigInt(released);
+  const refundedAmount = BigInt(refunded);
+  const escrowAmount =
+    raisedAmount - releasedAmount - refundedAmount > 0n
+      ? raisedAmount - releasedAmount - refundedAmount
+      : 0n;
+  const neededAmount = goalAmount - raisedAmount > 0n ? goalAmount - raisedAmount : 0n;
+  const escrow = escrowAmount.toString();
+  const needed = neededAmount.toString();
 
-  const releasedFiat = formatFiat(released);
-  const escrowFiat = formatFiat(escrow);
-  const goalFiat = formatFiat(goal);
+  const rawReleasedPct = percent(releasedAmount, goalAmount);
+  const rawEscrowPct = percent(escrowAmount, goalAmount);
+  const totalPct = rawReleasedPct + rawEscrowPct;
+  const scale = totalPct > 100 && totalPct > 0 ? 100 / totalPct : 1;
+  const releasedPct = rawReleasedPct * scale;
+  const escrowPct = rawEscrowPct * scale;
 
-  const label = `${formatAmount(released)} released, ${formatAmount(escrow)} in escrow, ${formatAmount(needed)} still needed of ${formatAmount(goal)}`;
+  const releasedFiat = formatFiat(releasedAmount.toString());
+  const escrowFiat = formatFiat(escrowAmount.toString());
+  const goalFiat = formatFiat(goalAmount.toString());
+
+  const refundedLabel =
+    refundedAmount > 0n ? `, ${formatAmount(refundedAmount.toString())} refunded` : '';
+  const label = `${formatAmount(releasedAmount.toString())} released, ${formatAmount(escrow)} in escrow${refundedLabel}, ${formatAmount(needed)} still needed of ${formatAmount(goalAmount.toString())}`;
 
   return (
     <div>
@@ -66,7 +84,7 @@ export function FundingBar({
               Released
             </dt>
             <dd className="mt-0.5 text-ink">
-              {formatAmount(released)}
+              {formatAmount(releasedAmount.toString())}
               {releasedFiat && (
                 <span className="block font-mono text-[0.75rem] text-ink-muted">
                   {releasedFiat}
@@ -91,7 +109,7 @@ export function FundingBar({
               Goal
             </dt>
             <dd className="mt-0.5 text-ink">
-              {formatAmount(goal)}
+              {formatAmount(goalAmount.toString())}
               {goalFiat && (
                 <span className="block font-mono text-[0.75rem] text-ink-muted">{goalFiat}</span>
               )}

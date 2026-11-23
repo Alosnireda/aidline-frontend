@@ -101,6 +101,7 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
           <button
             key={p}
             type="button"
+            aria-pressed={input === p}
             className={`figure border px-3 py-1 text-[0.8125rem] ${input === p ? 'border-ink text-ink' : 'border-rule text-ink-soft hover:border-ink'}`}
             onClick={() => setInput(p)}
             disabled={busy}

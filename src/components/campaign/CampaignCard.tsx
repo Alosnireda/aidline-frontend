@@ -16,18 +16,30 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
   const endingSoon = campaign.status === 'active' && isEndingSoon(campaign.deadline);
+  // eslint-disable-next-line react-hooks/purity -- render-time comparison for static card display
+  const now = Date.now();
+  const endingSoon =
+    campaign.status === 'active' &&
+    campaign.deadline &&
+    Number(campaign.deadline) > 0 &&
+    Number(campaign.deadline) - now > 0 &&
+    Number(campaign.deadline) - now < THREE_DAYS_MS;
   return (
-    <Link
-      href={`/campaigns/${campaign.id}`}
-      className="group flex flex-col border-t-2 border-ink pt-4"
-    >
+    <article className="group relative flex flex-col border-t-2 border-ink pt-4">
+      <Link
+        href={`/campaigns/${campaign.id}`}
+        aria-label={m?.title ?? `Campaign #${campaign.id}`}
+        className="absolute inset-0 z-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      >
+        <span className="sr-only">{m?.title ?? `Campaign #${campaign.id}`}</span>
+      </Link>
       <CampaignCover campaign={campaign} className="aspect-[3/2] w-full" />
       <div className="mt-4 flex items-center gap-2 text-[0.6875rem] font-medium uppercase tracking-[0.08em]">
         <span className={k.text}>{k.short}</span>
         <span className="text-rule">/</span>
         <span className="text-ink-muted">{m?.location ?? 'Unknown location'}</span>
       </div>
-      <h3 className="mt-2 text-[1.375rem] group-hover:underline group-hover:decoration-rule group-hover:underline-offset-4">
+      <h3 className="mt-2 text-[1.375rem] group-hover:underline group-hover:decoration-rule group-hover:underline-offset-4 group-focus-within:underline group-focus-within:decoration-rule group-focus-within:underline-offset-4">
         {m?.title ?? `Campaign #${campaign.id}`}
       </h3>
       {/* #143: Ending soon marker with text, not colour alone */}
@@ -46,6 +58,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           goal={campaign.goal}
           raised={campaign.raised}
           released={campaign.released}
+          refunded={campaign.refunded}
         />
         <p className="mt-3 flex justify-between text-[0.8125rem] text-ink-muted">
           <span>
@@ -64,6 +77,6 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           </span>
         </p>
       </div>
-    </Link>
+    </article>
   );
 }
