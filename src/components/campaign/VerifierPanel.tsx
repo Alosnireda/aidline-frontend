@@ -6,23 +6,41 @@ import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, reuseUpload, type CampaignDetail, type CachedUpload } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
+import {
+  formatFileSize,
+  isProofSelectionValid,
+  proofFileKey,
+  proofUploadErrors,
+  proofUploadHint,
+  PROOF_UPLOAD_ACCEPT,
+} from '@/lib/proofUpload';
 import { describeError } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
+
+interface ProofPreview {
+  file: File;
+  key: string;
+  url: string;
+}
 
 /** Lets the campaign's verifier publish evidence and release the next milestone. */
 export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
   const { address, sign } = useWallet();
   const { state, run, busy } = useTx();
   const [note, setNote] = useState('');
-  const [files, setFiles] = useState<FileList | null>(null);
-  const [fileInputKey, setFileInputKey] = useState(0);
+  const [previews, setPreviews] = useState<ProofPreview[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const uploadedProof = useRef<CachedUpload<string, FileList | null> | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const previewsRef = useRef(previews);
+  const uploadedProof = useRef<CachedUpload<string, ProofPreview[]> | null>(null);
 
-  useEffect(() => {
-    uploadedProof.current = null;
-  }, [campaign.id, campaign.milestonesReleased]);
+  useEffect(
+    () => () => {
+      for (const preview of previewsRef.current) URL.revokeObjectURL(preview.url);
+    },
+    [],
+  );
 
   if (address !== campaign.verifier || campaign.status !== 'active') return null;
 
@@ -30,20 +48,58 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
   if (!next) return null;
   const escrow = BigInt(campaign.raised) - BigInt(campaign.released);
   const funded = escrow >= BigInt(next.amount);
+  const files = previews.map((preview) => preview.file);
+  const validationErrors = proofUploadErrors(files);
   const proofKey = `${campaign.id}:${next.index}:${note}`;
+
+  const updatePreviews = (selected: ProofPreview[]) => {
+    previewsRef.current = selected;
+    setPreviews(selected);
+  };
+
+  const addFiles = (selected: FileList | null) => {
+    const added = Array.from(selected ?? [])
+      .filter((file) => !previewsRef.current.some((preview) => preview.key === proofFileKey(file)))
+      .map((file) => ({
+        file,
+        key: proofFileKey(file),
+        url: URL.createObjectURL(file),
+      }));
+    updatePreviews([...previewsRef.current, ...added]);
+    uploadedProof.current = null;
+    setUploadError(null);
+    if (fileInput.current) fileInput.current.value = '';
+  };
+
+  const removeFile = (key: string) => {
+    const removed = previewsRef.current.find((preview) => preview.key === key);
+    if (removed) URL.revokeObjectURL(removed.url);
+    updatePreviews(previewsRef.current.filter((preview) => preview.key !== key));
+    uploadedProof.current = null;
+    setUploadError(null);
+  };
+
+  const clearProofs = () => {
+    for (const preview of previewsRef.current) URL.revokeObjectURL(preview.url);
+    updatePreviews([]);
+    uploadedProof.current = null;
+  };
 
   const submit = async () => {
     setUploadError(null);
-    let proofUri = reuseUpload(uploadedProof.current, proofKey, files);
+    if (!isProofSelectionValid(files) || note.trim().length < 10) return;
+    const selected = previewsRef.current;
+    let proofUri = reuseUpload(uploadedProof.current, proofKey, selected);
     if (!proofUri) {
       const form = new FormData();
       form.set('campaignId', campaign.id);
       form.set('milestoneIndex', String(next.index));
       form.set('note', note);
-      for (const f of Array.from(files ?? [])) form.append('files', f);
+      for (const preview of selected) form.append('files', preview.file);
+
       try {
         proofUri = (await api.uploadProof(form)).uri;
-        uploadedProof.current = { key: proofKey, input: files, uri: proofUri };
+        uploadedProof.current = { key: proofKey, input: selected, uri: proofUri };
       } catch (err) {
         setUploadError(describeError(err));
         return;
@@ -56,9 +112,8 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
     );
     if (ok) {
       setNote('');
-      setFiles(null);
-      uploadedProof.current = null;
-      setFileInputKey((key) => key + 1);
+      clearProofs();
+      if (fileInput.current) fileInput.current.value = '';
     }
   };
 
@@ -106,24 +161,63 @@ export function VerifierPanel({ campaign }: { campaign: CampaignDetail }) {
               Photos or documents
             </label>
             <input
-              key={fileInputKey}
               id="proof-files"
+              ref={fileInput}
               type="file"
               multiple
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(e) => {
-                setFiles(e.target.files);
-                uploadedProof.current = null;
-              }}
+              accept={PROOF_UPLOAD_ACCEPT}
+              onChange={(e) => addFiles(e.target.files)}
               className="block w-full text-sm file:mr-3 file:border file:border-ink file:bg-transparent file:px-3 file:py-1.5 file:text-ink"
               disabled={busy}
             />
-            <p className="hint">Up to 5 files, 5 MB each. JPEG, PNG, WebP or PDF.</p>
+            <p className="hint">{proofUploadHint()}</p>
+            {validationErrors.length > 0 && (
+              <ul role="alert" className="mt-2 space-y-1 text-[0.8125rem] text-danger">
+                {validationErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            )}
+            {previews.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {previews.map((preview) => (
+                  <li key={preview.key} className="flex items-center gap-3 border border-rule p-2">
+                    {preview.file.type.startsWith('image/') ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={preview.url}
+                        alt={`Selected proof ${preview.file.name}`}
+                        className="h-16 w-20 border border-rule object-cover"
+                      />
+                    ) : (
+                      <span className="figure flex h-16 w-20 items-center justify-center border border-rule text-xs text-ink-muted">
+                        PDF
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[0.875rem]">{preview.file.name}</p>
+                      <p className="figure text-xs text-ink-muted">
+                        {formatFileSize(preview.file.size)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="link text-[0.8125rem]"
+                      onClick={() => removeFile(preview.key)}
+                      aria-label={`Remove ${preview.file.name}`}
+                      disabled={busy}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <button
             type="submit"
             className="btn btn-primary w-full"
-            disabled={busy || note.trim().length < 10}
+            disabled={busy || note.trim().length < 10 || !isProofSelectionValid(files)}
           >
             Publish evidence and release {formatAmount(next.amount)}
           </button>

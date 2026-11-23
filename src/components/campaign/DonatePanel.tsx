@@ -6,6 +6,7 @@ import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, type CampaignDetail } from '@/lib/api';
 import { config } from '@/lib/config';
+import { availablePresets, initialDonateInput } from '@/lib/donateAmount';
 import { useFiat } from '@/lib/fiat';
 import { amountInput, capAmount, formatAmount, parseAmount, shortAddress } from '@/lib/format';
 import { getPledge, tokenAllowance, type Pledge } from '@/lib/stellar/balance';
@@ -91,6 +92,9 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   }, [loadDonorPledgeState]);
 
   const remaining = BigInt(campaign.goal) - BigInt(campaign.raised);
+  const [input, setInput] = useState(() => initialDonateInput(remaining));
+  const [lastAmount, setLastAmount] = useState<bigint>(0n);
+  const presets = availablePresets(PRESETS, remaining);
   const rest = capAmount(remaining, balance);
   const restInput = amountInput(rest);
   const restLabel = formatAmount(rest, { maxFraction: config.tokenDecimals });
@@ -143,10 +147,16 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
     setLastAction('donate');
     setLastAmount(amount);
     const before = BigInt(campaign.raised);
-    await run(
+    const result = await run(
       (on) => aidline.donate(address, campaign.id, amount, sign, on),
       async () => BigInt((await api.campaign(campaign.id)).raised) > before,
     );
+    if (result) {
+      const updated = await api.campaign(campaign.id).catch(() => null);
+      if (updated) {
+        setInput(initialDonateInput(BigInt(updated.goal) - BigInt(updated.raised)));
+      }
+    }
     refreshBalance();
   };
 
@@ -201,6 +211,49 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 border border-rule">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void donate();
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <label htmlFor="amount" className="label">
+          Amount
+        </label>
+        {fiatEstimate && (
+          <span className="figure font-mono text-xs text-ink-muted">{fiatEstimate}</span>
+        )}
+      </div>
+      <div className="flex">
+        <input
+          id="amount"
+          inputMode="decimal"
+          autoComplete="off"
+          className="field figure rounded-r-none text-lg"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          aria-invalid={Boolean(invalid)}
+          aria-describedby="amount-hint"
+          disabled={busy}
+        />
+        <span className="figure flex items-center border border-l-0 border-rule bg-paper-sunk px-3 text-ink-muted">
+          {config.tokenSymbol}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {presets.map((p) => (
+          <button
+            key={p}
+            type="button"
+            aria-pressed={input === p}
+            className={`figure border px-3 py-1 text-[0.8125rem] ${input === p ? 'border-ink text-ink' : 'border-rule text-ink-soft hover:border-ink'}`}
+            onClick={() => setInput(p)}
+            disabled={busy}
+          >
+            {p}
+          </button>
+        ))}
         <button
           type="button"
           className={`py-2 text-sm font-medium ${mode === 'donate' ? 'bg-ink text-paper' : 'bg-paper text-ink-muted hover:text-ink'}`}

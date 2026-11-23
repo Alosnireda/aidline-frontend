@@ -10,6 +10,7 @@ import {
 } from '@stellar/stellar-sdk';
 
 import { config } from '../config';
+import { formatAmount } from '../format';
 
 /** Signs a base64 transaction envelope and returns the signed envelope. */
 export type Signer = (txXdr: string) => Promise<string>;
@@ -48,8 +49,8 @@ export async function invokeContract<T = unknown>(
 
   const prepared = await rpcServer.prepareTransaction(built);
   // #145: Report the prepared fee before asking the wallet to sign
-  const feeStroops = prepared.toXDR ? '0' : String(fee);
-  onStatus?.({ phase: 'prepared', fee: feeStroops });
+  const fee = formatAmount(prepared.fee, { symbol: false, maxFraction: 7 });
+  onStatus?.({ phase: 'prepared', fee });
   onStatus?.('signing');
   const signed = await sign(prepared.toXDR());
 

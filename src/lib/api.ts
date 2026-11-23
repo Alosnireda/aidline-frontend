@@ -23,6 +23,7 @@ export interface Campaign {
   goal: string;
   raised: string;
   released: string;
+  refunded?: string;
   milestones: string[];
   milestonesReleased: number;
   deadline: string;
