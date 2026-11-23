@@ -16,14 +16,6 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
   const endingSoon = campaign.status === 'active' && isEndingSoon(campaign.deadline);
-  // eslint-disable-next-line react-hooks/purity -- render-time comparison for static card display
-  const now = Date.now();
-  const endingSoon =
-    campaign.status === 'active' &&
-    campaign.deadline &&
-    Number(campaign.deadline) > 0 &&
-    Number(campaign.deadline) - now > 0 &&
-    Number(campaign.deadline) - now < THREE_DAYS_MS;
   return (
     <article className="group relative flex flex-col border-t-2 border-ink pt-4">
       <Link
@@ -33,7 +25,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
       >
         <span className="sr-only">{m?.title ?? `Campaign #${campaign.id}`}</span>
       </Link>
-      <CampaignCover campaign={campaign} className="aspect-[3/2] w-full" />
+      <CampaignCover campaign={campaign} className="aspect-[3/2] w-full" loading="lazy" />
       <div className="mt-4 flex items-center gap-2 text-[0.6875rem] font-medium uppercase tracking-[0.08em]">
         <span className={k.text}>{k.short}</span>
         <span className="text-rule">/</span>

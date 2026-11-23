@@ -99,3 +99,15 @@ export const CancelledWithRefunds: Story = {
     },
   },
 };
+
+export const BrokenPhotoFallbackCard: Story = {
+  args: {
+    campaign: {
+      ...sampleEmergencyCampaign,
+      metadata: {
+        ...sampleEmergencyCampaign.metadata!,
+        imageUrl: 'https://example.invalid/broken-image.jpg',
+      },
+    },
+  },
+};
