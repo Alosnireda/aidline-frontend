@@ -13,6 +13,11 @@ const CONTRACT_ERRORS: Record<number, string> = {
   11: 'Refunds open once a campaign is cancelled or passes its deadline.',
   12: 'This wallet has nothing left to reclaim from this campaign.',
   13: 'This wallet is not allowed to do that.',
+  18: 'A verifier bond of at least the required minimum amount is required to register.',
+  19: 'No verifier bond was found for this wallet.',
+  20: 'This bond is not ready to withdraw yet, or nothing remains to withdraw.',
+  21: 'The bond withdrawal waiting period has not finished yet.',
+  22: 'The slash amount is larger than the remaining bond.',
 };
 
 /**

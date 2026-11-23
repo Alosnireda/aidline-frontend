@@ -168,4 +168,24 @@ export const aidline = {
     sign: Signer,
     on?: (s: Status) => void,
   ) => invoke(admin, 'reassign_verifier', [u64(campaignId), addr(newVerifier)], sign, on),
+
+  /** Posts a bond and registers `verifier` without waiting for admin approval. */
+  registerWithBond: (
+    verifier: string,
+    bondAmount: bigint,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke(verifier, 'register_with_bond', [addr(verifier), i128(bondAmount)], sign, on),
+
+  /** Deregisters a verifier and starts the bond withdrawal delay countdown. */
+  deregisterVerifier: (
+    caller: string,
+    verifier: string,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke(caller, 'deregister_verifier', [addr(caller), addr(verifier)], sign, on),
+
+  /** Withdraws a deregistered verifier's remaining bond after the delay has elapsed. */
+  withdrawBond: (verifier: string, sign: Signer, on?: (s: Status) => void) =>
+    invoke<bigint>(verifier, 'withdraw_bond', [addr(verifier)], sign, on),
 };

@@ -7,9 +7,38 @@ import {
   rpc,
   scValToNative,
   TransactionBuilder,
+  xdr,
 } from '@stellar/stellar-sdk';
 
 import { config } from '../config';
+
+async function simulateRead(
+  contractId: string,
+  method: string,
+  ...args: xdr.ScVal[]
+): Promise<unknown> {
+  if (!contractId) return null;
+  const server = new rpc.Server(config.rpcUrl, { allowHttp: config.rpcUrl.startsWith('http:') });
+  const tx = new TransactionBuilder(new Account(contract.NULL_ACCOUNT, '0'), {
+    fee: BASE_FEE,
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(new Contract(contractId).call(method, ...args))
+    .setTimeout(30)
+    .build();
+  const sim = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(sim) || !sim.result) return null;
+  return scValToNative(sim.result.retval);
+}
+
+/** Normalizes a Soroban unit enum decoded by `scValToNative` to its variant name. */
+export function enumTag(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] ?? '');
+  if (value && typeof value === 'object' && 'tag' in value) {
+    return String((value as { tag: unknown }).tag);
+  }
+  return String(value ?? '');
+}
 
 /**
  * Reads a wallet's balance of the campaign token straight from its contract.
@@ -17,15 +46,46 @@ import { config } from '../config';
  * the account does not exist on this network yet.
  */
 export async function tokenBalance(address: string): Promise<bigint | null> {
-  const server = new rpc.Server(config.rpcUrl, { allowHttp: config.rpcUrl.startsWith('http:') });
-  const tx = new TransactionBuilder(new Account(contract.NULL_ACCOUNT, '0'), {
-    fee: BASE_FEE,
-    networkPassphrase: config.networkPassphrase,
-  })
-    .addOperation(new Contract(config.tokenId).call('balance', new Address(address).toScVal()))
-    .setTimeout(30)
-    .build();
-  const sim = await server.simulateTransaction(tx);
-  if (rpc.Api.isSimulationError(sim) || !sim.result) return null;
-  return BigInt(scValToNative(sim.result.retval) as bigint);
+  const raw = await simulateRead(config.tokenId, 'balance', new Address(address).toScVal());
+  return raw === null || raw === undefined ? null : BigInt(raw as bigint);
+}
+
+export type BondStatus = 'Active' | 'PendingWithdrawal' | 'Withdrawn' | 'Slashed';
+
+export interface VerifierBond {
+  verifier: string;
+  amount: bigint;
+  remaining: bigint;
+  status: BondStatus;
+  deregisteredAt: number;
+}
+
+/** Returns the minimum required verifier bond in token units (`0n` when disabled). */
+export async function getBondRequirement(): Promise<bigint> {
+  const raw = await simulateRead(config.contractId, 'bond_requirement');
+  return raw === null || raw === undefined ? 0n : BigInt(raw as bigint | number | string);
+}
+
+/** Returns the bond withdrawal delay in seconds (`0` when no delay is set). */
+export async function getBondWithdrawDelay(): Promise<number> {
+  const raw = await simulateRead(config.contractId, 'bond_withdraw_delay');
+  return raw === null || raw === undefined ? 0 : Number(raw);
+}
+
+/** Returns the on-chain bond record for `verifier`, or `null` if none exists. */
+export async function getVerifierBond(verifier: string): Promise<VerifierBond | null> {
+  const raw = await simulateRead(
+    config.contractId,
+    'get_verifier_bond',
+    new Address(verifier).toScVal(),
+  );
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    verifier: String(r.verifier),
+    amount: BigInt(r.amount as bigint | number | string),
+    remaining: BigInt(r.remaining as bigint | number | string),
+    status: enumTag(r.status) as BondStatus,
+    deregisteredAt: Number(r.deregistered_at ?? 0),
+  };
 }
