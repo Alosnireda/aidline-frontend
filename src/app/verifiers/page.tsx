@@ -74,7 +74,9 @@ export default async function VerifiersPage() {
           </p>
         </div>
         <div className="lg:col-span-7 lg:col-start-6">
-          <VerifierApplicationForm />
+          <VerifierApplicationForm
+            registeredAddresses={verifiers ? verifiers.items.map((v) => v.address) : null}
+          />
         </div>
       </section>
     </Container>

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, ApiError } from '@/lib/api';
 import { applicationErrors, type ApplicationField } from '@/lib/applicationErrors';
+import { shortAddress } from '@/lib/format';
 
 /** Props that link an input to its error message, when it has one. */
 function errorProps(field: ApplicationField, message: string | undefined) {
@@ -20,7 +21,15 @@ function FieldError({ field, message }: { field: ApplicationField; message?: str
   );
 }
 
-export function VerifierApplicationForm() {
+/**
+ * `registeredAddresses` is the verifier list the page already loaded, or null
+ * if it could not be loaded (then the form is shown, since we cannot tell).
+ */
+export function VerifierApplicationForm({
+  registeredAddresses = null,
+}: {
+  registeredAddresses?: string[] | null;
+}) {
   const { address, state: wallet, connect } = useWallet();
   const [orgName, setOrgName] = useState('');
   const [country, setCountry] = useState('');
@@ -37,6 +46,18 @@ export function VerifierApplicationForm() {
         <button type="button" className="btn btn-primary mt-4" onClick={() => void connect()}>
           Connect wallet to apply
         </button>
+      </div>
+    );
+  }
+
+  if (registeredAddresses?.includes(address)) {
+    return (
+      <div role="status" className="border-l-2 border-ink pl-4">
+        <p className="font-medium text-ink">This wallet is already a registered verifier</p>
+        <p className="mt-1">
+          {shortAddress(address, 6)} is in the list above, so there is nothing to apply for. To
+          verify with a different organisation, connect that organisation&rsquo;s wallet.
+        </p>
       </div>
     );
   }
