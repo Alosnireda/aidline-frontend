@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { api, ApiError, READ_TIMEOUT_MS } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  donorPosition,
+  READ_TIMEOUT_MS,
+  reuseUpload,
+  type DonorHistory,
+} from '@/lib/api';
 import { config } from '@/lib/config';
 
 function respond(status: number, body: unknown) {
@@ -115,5 +122,38 @@ describe('api errors', () => {
   it('lets network failures through unchanged', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
     await expect(api.stats()).rejects.toThrow('fetch failed');
+  });
+});
+
+describe('reuseUpload', () => {
+  it('returns the cached uri when the key and input still match', () => {
+    const files = {} as FileList;
+    const cached = { key: 'campaign:0:note', input: files, uri: 'ipfs://proof' };
+    expect(reuseUpload(cached, 'campaign:0:note', files)).toBe('ipfs://proof');
+  });
+
+  it('ignores a cache after the key or input changes', () => {
+    const files = {} as FileList;
+    const cached = { key: 'campaign:0:note', input: files, uri: 'ipfs://proof' };
+    expect(reuseUpload(cached, 'campaign:1:note', files)).toBeNull();
+    expect(reuseUpload(cached, 'campaign:0:note', {} as FileList)).toBeNull();
+    expect(reuseUpload(null, 'campaign:0:note', files)).toBeNull();
+  });
+});
+
+describe('donorPosition', () => {
+  it('adds only this campaign’s donations and refunds', () => {
+    const history = {
+      donations: [
+        { campaignId: 'a', amount: '100' },
+        { campaignId: 'b', amount: '500' },
+        { campaignId: 'a', amount: '250' },
+      ],
+      refunds: [
+        { campaignId: 'a', amount: '50' },
+        { campaignId: 'b', amount: '10' },
+      ],
+    } as unknown as DonorHistory;
+    expect(donorPosition(history, 'a')).toEqual({ given: 350n, refunded: 50n });
   });
 });

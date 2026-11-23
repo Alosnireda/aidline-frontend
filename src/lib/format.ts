@@ -33,6 +33,17 @@ export function parseAmount(input: string, decimals = config.tokenDecimals): big
   return BigInt(whole!) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0') || '0');
 }
 
+export function capAmount(amount: bigint, limit: bigint | null): bigint {
+  return limit !== null && limit < amount ? limit : amount;
+}
+
+export function amountInput(amount: bigint): string {
+  return formatAmount(amount, { symbol: false, maxFraction: config.tokenDecimals }).replace(
+    /,/g,
+    '',
+  );
+}
+
 /** Share of `part` in `total` as a 0 to 100 number, safe for bigint strings. */
 export function percent(part: string | bigint, total: string | bigint): number {
   const t = BigInt(total);
