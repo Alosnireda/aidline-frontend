@@ -115,9 +115,16 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
             <section className="mt-12">
               <p className="kicker">The situation</p>
               <div className="mt-4 max-w-[68ch] space-y-4 text-[1.0625rem]">
-                {m.description.split(/\n{2,}/).map((para, i) => (
-                  <p key={i}>{para}</p>
-                ))}
+                {m.description
+                  .replace(/\r\n/g, '\n')
+                  .split(/\n\s*\n+/)
+                  .map((para) => para.trim())
+                  .filter(Boolean)
+                  .map((para, i) => (
+                    <p key={i} className="whitespace-pre-line">
+                      {para}
+                    </p>
+                  ))}
               </div>
             </section>
           )}
