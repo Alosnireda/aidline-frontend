@@ -92,3 +92,20 @@ export const EmergencyWithFastTrackAdvance: Story = {
     verifierName: 'Red Relief Network',
   },
 };
+
+export const ReleasedWithoutTxHash: Story = {
+  args: {
+    campaign: {
+      ...sampleCampaign,
+      milestones: [
+        {
+          ...sampleCampaign.milestones[0]!,
+          txHash: null,
+        },
+        sampleCampaign.milestones[1]!,
+        sampleCampaign.milestones[2]!,
+      ],
+    },
+    verifierName: 'Red Relief Network',
+  },
+};

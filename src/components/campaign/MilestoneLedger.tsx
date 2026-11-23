@@ -148,7 +148,13 @@ export function MilestoneLedger({
                     )
                   )}
                   <p className="text-[0.8125rem] text-ink-muted">
-                    Released {formatDate(m.releasedAt)} · {m.txHash && <TxLink hash={m.txHash} />}
+                    Released {formatDate(m.releasedAt)}
+                    {m.txHash && (
+                      <>
+                        {' · '}
+                        <TxLink hash={m.txHash} />
+                      </>
+                    )}
                   </p>
                 </div>
               ) : (
