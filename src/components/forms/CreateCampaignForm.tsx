@@ -2,13 +2,20 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { CampaignCover } from '@/components/campaign/CampaignCover';
 import { KIND } from '@/components/campaign/kind';
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
-import { api, ApiError, type CampaignKind, type Verifier } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  reuseUpload,
+  type CampaignKind,
+  type CachedUpload,
+  type Verifier,
+} from '@/lib/api';
 import { config } from '@/lib/config';
 import { formatAmount, parseAmount, shortAddress, splitParagraphs } from '@/lib/format';
 import { describeError } from '@/lib/stellar/errors';
@@ -39,8 +46,21 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
   const [milestones, setMilestones] = useState(['', '']);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const uploadedMetadata = useRef<CachedUpload<string, null> | null>(null);
 
   const beneficiary = beneficiaryInput ?? address ?? '';
+  const metadata = {
+    title: title.trim(),
+    summary: summary.trim(),
+    description: description.trim(),
+    location: location.trim(),
+    organizer: organizer.trim() || undefined,
+    imageUrl: imageUrl.trim() || undefined,
+  };
+  const metadataKey = JSON.stringify(metadata);
+  const clearMetadata = () => {
+    uploadedMetadata.current = null;
+  };
 
   const amounts = milestones.map((m) => parseAmount(m));
   const goal = amounts.every((a) => a !== null && a > 0n)
@@ -69,25 +89,19 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
     setFormError(null);
     if (!address || !validate()) return;
 
-    let metadataUri: string;
-    try {
-      metadataUri = (
-        await api.createMetadata({
-          title: title.trim(),
-          summary: summary.trim(),
-          description: description.trim(),
-          location: location.trim(),
-          organizer: organizer.trim() || undefined,
-          imageUrl: imageUrl.trim() || undefined,
-        })
-      ).uri;
-    } catch (err) {
-      if (err instanceof ApiError && err.issues.length) {
-        setErrors(Object.fromEntries(err.issues.map((i) => [i.path, i.message])));
-      } else {
-        setFormError(describeError(err));
+    let metadataUri = reuseUpload(uploadedMetadata.current, metadataKey, null);
+    if (!metadataUri) {
+      try {
+        metadataUri = (await api.createMetadata(metadata)).uri;
+        uploadedMetadata.current = { key: metadataKey, input: null, uri: metadataUri };
+      } catch (err) {
+        if (err instanceof ApiError && err.issues.length) {
+          setErrors(Object.fromEntries(err.issues.map((i) => [i.path, i.message])));
+        } else {
+          setFormError(describeError(err));
+        }
+        return;
       }
-      return;
     }
 
     let createdId: string | null = null;
@@ -184,6 +198,113 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           >
             {preview ? 'Edit story' : 'Preview'}
           </button>
+        <legend className="kicker mb-4">2. The story donors will read</legend>
+        <div>
+          <label className="label" htmlFor="title">
+            Title
+          </label>
+          <input
+            id="title"
+            className="field"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              clearMetadata();
+            }}
+            maxLength={120}
+            placeholder="Clean water after flooding in Les Cayes"
+          />
+          {err('title')}
+        </div>
+        <div>
+          <label className="label" htmlFor="summary">
+            One line summary
+          </label>
+          <input
+            id="summary"
+            className="field"
+            value={summary}
+            onChange={(e) => {
+              setSummary(e.target.value);
+              clearMetadata();
+            }}
+            maxLength={280}
+          />
+          {err('summary')}
+        </div>
+        <div>
+          <label className="label" htmlFor="location">
+            Location
+          </label>
+          <input
+            id="location"
+            className="field"
+            value={location}
+            onChange={(e) => {
+              setLocation(e.target.value);
+              clearMetadata();
+            }}
+            placeholder="Les Cayes, Haiti"
+            maxLength={120}
+          />
+          {err('location')}
+        </div>
+        <div>
+          <label className="label" htmlFor="organizer">
+            Raised by <span className="font-normal text-ink-muted">(optional)</span>
+          </label>
+          <input
+            id="organizer"
+            className="field"
+            value={organizer}
+            onChange={(e) => {
+              setOrganizer(e.target.value);
+              clearMetadata();
+            }}
+            placeholder="Haitian community association, Montreal"
+            maxLength={120}
+          />
+          <p className="hint">
+            Your group or community abroad. Donors trust campaigns they can place.
+          </p>
+          {err('organizer')}
+        </div>
+        <div>
+          <label className="label" htmlFor="description">
+            What is happening and what the money will do
+          </label>
+          <textarea
+            id="description"
+            className="field min-h-40"
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              clearMetadata();
+            }}
+            maxLength={10000}
+          />
+          <p className="hint">Leave a blank line between paragraphs.</p>
+          {err('description')}
+        </div>
+        <div>
+          <label className="label" htmlFor="image">
+            Cover photo URL <span className="font-normal text-ink-muted">(optional)</span>
+          </label>
+          <input
+            id="image"
+            type="url"
+            className="field"
+            value={imageUrl}
+            onChange={(e) => {
+              setImageUrl(e.target.value);
+              clearMetadata();
+            }}
+            placeholder="https://"
+          />
+          <p className="hint">
+            A real photo of the place or the work. Without one, a cover is drawn from the location.
+          </p>
+          {err('imageUrl')}
         </div>
 
         {preview ? (

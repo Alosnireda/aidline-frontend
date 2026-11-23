@@ -11,7 +11,6 @@ import { explorer } from '@/lib/config';
 import { formatAmount, formatDate, percent, shortAddress } from '@/lib/format';
 import { safe } from '@/lib/safe';
 
-export const metadata: Metadata = { title: 'Giving history' };
 // #138: Generate a title with the donor address so tabs and shared links are distinguishable.
 export async function generateMetadata(props: PageProps<'/donors/[address]'>): Promise<Metadata> {
   const { address } = await props.params;

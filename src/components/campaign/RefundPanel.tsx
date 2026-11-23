@@ -4,55 +4,100 @@ import { useEffect, useState } from 'react';
 
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
-import { api, type CampaignDetail } from '@/lib/api';
+import { api, donorPosition, type CampaignDetail } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
+import { refundEstimate } from '@/lib/refund';
+import { contributionOf } from '@/lib/stellar/balance';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
+
+interface Position {
+  given: bigint;
+  refunded: bigint;
+  estimate: bigint;
+  fromContract: boolean;
+}
+
+interface Lookup {
+  key: string;
+  position: Position | null;
+  error: boolean;
+}
 
 /** Shown on cancelled or expired campaigns so donors can reclaim unspent funds. */
 export function RefundPanel({ campaign }: { campaign: CampaignDetail }) {
   const { address, sign } = useWallet();
   const { state, run, busy } = useTx();
-  const [position, setPosition] = useState<{ given: bigint; refunded: bigint } | null>(null);
+  const [lookup, setLookup] = useState<Lookup | null>(null);
+  const [retry, setRetry] = useState(0);
+  const phaseKey = JSON.stringify(state.phase);
+  const lookupKey = `${address ?? ''}:${campaign.id}:${phaseKey}:${retry}`;
 
   useEffect(() => {
     if (!address) return;
     let cancelled = false;
-    api
-      .donor(address)
-      .then((h) => {
-        if (cancelled) return;
-        const given = h.donations
-          .filter((d) => d.campaignId === campaign.id)
-          .reduce((sum, d) => sum + BigInt(d.amount), 0n);
-        const refunded = h.refunds
-          .filter((r) => r.campaignId === campaign.id)
-          .reduce((sum, r) => sum + BigInt(r.amount), 0n);
-        setPosition({ given, refunded });
-      })
-      .catch(() => setPosition(null));
+
+    const load = async () => {
+      const history = await api.donor(address);
+      if (cancelled) return;
+      const indexed = donorPosition(history, campaign.id);
+      const contractGiven = await contributionOf(campaign.id, address).catch(() => null);
+      if (cancelled) return;
+      const given = contractGiven ?? indexed.given;
+      setLookup({
+        key: lookupKey,
+        position: {
+          given,
+          refunded: indexed.refunded,
+          estimate: refundEstimate(given, BigInt(campaign.raised), BigInt(campaign.released)),
+          fromContract: contractGiven !== null,
+        },
+        error: false,
+      });
+    };
+
+    load().catch(() => {
+      if (!cancelled) setLookup({ key: lookupKey, position: null, error: true });
+    });
     return () => {
       cancelled = true;
     };
-  }, [address, campaign.id, state.phase]);
+  }, [address, campaign.id, campaign.raised, campaign.released, lookupKey]);
 
   const reason =
     campaign.status === 'cancelled'
       ? 'This campaign was cancelled.'
       : 'This campaign ended before every milestone was verified.';
 
-  if (!address || !position || position.given === 0n) {
+  const unknown = (
+    <p className="text-[0.9375rem]">
+      {reason} Donors can reclaim their share of the funds that were never released.
+      {!address && ' Connect the wallet you donated with to check yours.'}
+    </p>
+  );
+
+  if (!address) return unknown;
+
+  const current = lookup?.key === lookupKey ? lookup : null;
+  if (current?.error) {
     return (
-      <p className="text-[0.9375rem]">
-        {reason} Donors can reclaim their share of the funds that were never released.
-        {!address && ' Connect the wallet you donated with to check yours.'}
-      </p>
+      <div>
+        <p role="alert" className="text-[0.9375rem] text-danger">
+          The refund amount could not be loaded.
+        </p>
+        <button
+          type="button"
+          className="btn btn-secondary mt-4"
+          onClick={() => setRetry((n) => n + 1)}
+        >
+          Try again
+        </button>
+      </div>
     );
   }
 
-  const raised = BigInt(campaign.raised);
-  const unreleased = raised - BigInt(campaign.released);
-  const estimate = raised > 0n ? (position.given * unreleased) / raised : 0n;
+  if (!current?.position) return unknown;
+  const position = current.position;
 
   if (position.refunded > 0n) {
     return (
@@ -63,17 +108,24 @@ export function RefundPanel({ campaign }: { campaign: CampaignDetail }) {
     );
   }
 
+  if (position.given === 0n) return unknown;
+
   return (
     <div>
       <p className="text-[0.9375rem]">
         {reason} You gave <span className="figure text-ink">{formatAmount(position.given)}</span>.
-        Your share of what was never released is{' '}
-        <span className="figure text-ink">{formatAmount(estimate)}</span>.
+        Your {position.fromContract ? '' : 'estimated '}share of what was never released is{' '}
+        <span className="figure text-ink">{formatAmount(position.estimate)}</span>.
       </p>
+      {!position.fromContract && (
+        <p className="hint">
+          Estimate based on the indexer because the contract contribution could not be read.
+        </p>
+      )}
       <button
         type="button"
         className="btn btn-primary mt-5 w-full"
-        disabled={busy || estimate === 0n}
+        disabled={busy || position.estimate === 0n}
         onClick={() =>
           void run(
             (on) => aidline.refund(address, campaign.id, sign, on),
@@ -84,7 +136,7 @@ export function RefundPanel({ campaign }: { campaign: CampaignDetail }) {
           )
         }
       >
-        Reclaim {formatAmount(estimate)}
+        Reclaim{position.fromContract ? '' : ' estimated'} {formatAmount(position.estimate)}
       </button>
       <TxStatus state={state} success="Your unspent share has been returned to your wallet." />
     </div>

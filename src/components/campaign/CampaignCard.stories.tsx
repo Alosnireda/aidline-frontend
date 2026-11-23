@@ -80,3 +80,34 @@ export const ClimateCard: Story = {
     campaign: sampleClimateCampaign,
   },
 };
+
+export const CancelledWithRefunds: Story = {
+  args: {
+    campaign: {
+      ...sampleEmergencyCampaign,
+      id: '3',
+      status: 'cancelled',
+      raised: '800000000',
+      released: '200000000',
+      refunded: '300000000',
+      milestonesReleased: 1,
+      metadata: {
+        ...sampleEmergencyCampaign.metadata!,
+        title: 'Cancelled Relief Drive',
+        summary: 'A campaign that ended early and returned unspent donor funds.',
+      },
+    },
+  },
+};
+
+export const BrokenPhotoFallbackCard: Story = {
+  args: {
+    campaign: {
+      ...sampleEmergencyCampaign,
+      metadata: {
+        ...sampleEmergencyCampaign.metadata!,
+        imageUrl: 'https://example.invalid/broken-image.jpg',
+      },
+    },
+  },
+};

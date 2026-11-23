@@ -23,6 +23,7 @@ export interface Campaign {
   goal: string;
   raised: string;
   released: string;
+  refunded?: string;
   milestones: string[];
   milestonesReleased: number;
   deadline: string;
@@ -54,8 +55,16 @@ export interface Milestone {
   proof: Proof | null;
 }
 
+export interface EmergencyAdvance {
+  amount: string;
+  releasedAt: string | null;
+  txHash: string | null;
+}
+
 export interface CampaignDetail extends Omit<Campaign, 'milestones'> {
   milestones: Milestone[];
+  emergencyAdvance?: EmergencyAdvance | null;
+  sponsor?: string | null;
 }
 
 export interface Donation {
@@ -138,6 +147,36 @@ export interface DonorHistory {
   refunds: { campaignId: string; amount: string; txHash: string; createdAt: string }[];
 }
 
+export interface DonorPosition {
+  given: bigint;
+  refunded: bigint;
+}
+
+export function donorPosition(history: DonorHistory, campaignId: string): DonorPosition {
+  const given = history.donations
+    .filter((d) => d.campaignId === campaignId)
+    .reduce((sum, d) => sum + BigInt(d.amount), 0n);
+  const refunded = history.refunds
+    .filter((r) => r.campaignId === campaignId)
+    .reduce((sum, r) => sum + BigInt(r.amount), 0n);
+  return { given, refunded };
+}
+
+export interface CachedUpload<K, I> {
+  key: K;
+  input: I;
+  uri: string;
+}
+
+export function reuseUpload<K, I>(
+  cached: CachedUpload<K, I> | null,
+  key: K,
+  input: I,
+): string | null {
+  if (!cached || cached.key !== key || cached.input !== input) return null;
+  return cached.uri;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -183,8 +222,19 @@ export const api = {
     params: { kind?: CampaignKind; status?: CampaignStatus; limit?: number; offset?: number } = {},
   ) => request<{ items: Campaign[]; total: number }>(`/campaigns${query(params)}`),
   campaign: (id: string) => request<CampaignDetail>(`/campaigns/${id}`),
-  donations: (id: string, limit = 20) =>
-    request<{ items: Donation[] }>(`/campaigns/${id}/donations${query({ limit })}`),
+  donations: (
+    id: string,
+    limitOrParams: number | { limit?: number; offset?: number } = 20,
+    offset?: number,
+  ) => {
+    const params =
+      typeof limitOrParams === 'number'
+        ? { limit: limitOrParams, offset }
+        : limitOrParams;
+    return request<{ items: Donation[]; total?: number }>(
+      `/campaigns/${id}/donations${query(params)}`,
+    );
+  },
   releases: (limit = 6) => request<{ items: Release[] }>(`/releases${query({ limit })}`),
   verifiers: () => request<{ items: Verifier[] }>('/verifiers'),
   verifier: (address: string) => request<Verifier & { active: boolean }>(`/verifiers/${address}`),

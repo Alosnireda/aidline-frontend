@@ -8,7 +8,9 @@ import { DonatePanel } from '@/components/campaign/DonatePanel';
 import { FundingBar } from '@/components/campaign/FundingBar';
 import { KIND, STATUS_LABEL } from '@/components/campaign/kind';
 import { MilestoneLedger } from '@/components/campaign/MilestoneLedger';
+import { RecentDonations } from '@/components/campaign/RecentDonations';
 import { RefundPanel } from '@/components/campaign/RefundPanel';
+import { SponsorPool } from '@/components/campaign/SponsorPool';
 import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
@@ -21,6 +23,7 @@ import {
   splitParagraphs,
 } from '@/lib/format';
 import { safe } from '@/lib/safe';
+import { getSponsorPool } from '@/lib/stellar/balance';
 
 async function load(id: string) {
   if (!/^\d+$/.test(id)) notFound();
@@ -44,7 +47,14 @@ export async function generateMetadata(props: PageProps<'/campaigns/[id]'>): Pro
 export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) {
   const { id } = await props.params;
   const [campaign, donations] = await Promise.all([load(id), safe(() => api.donations(id, 10))]);
-  const verifier = await safe(() => api.verifier(campaign.verifier));
+  const sponsorCandidates = [campaign.sponsor, campaign.creator].filter(
+    (v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i,
+  );
+  const [verifier, ...pools] = await Promise.all([
+    safe(() => api.verifier(campaign.verifier)),
+    ...sponsorCandidates.map((sponsor) => safe(() => getSponsorPool(campaign.id, sponsor))),
+  ]);
+  const sponsorPool = pools.find((p) => p !== null) ?? null;
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
   const refundable = campaign.status === 'cancelled' || campaign.status === 'expired';
@@ -115,6 +125,16 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
                 {splitParagraphs(m.description).map((para, i) => (
                   <p key={i}>{para}</p>
                 ))}
+                {m.description
+                  .replace(/\r\n/g, '\n')
+                  .split(/\n\s*\n+/)
+                  .map((para) => para.trim())
+                  .filter(Boolean)
+                  .map((para, i) => (
+                    <p key={i} className="whitespace-pre-line">
+                      {para}
+                    </p>
+                  ))}
               </div>
             </section>
           )}
@@ -135,25 +155,13 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
           </section>
 
           <section className="mt-14">
-            <p className="kicker">Recent donations</p>
-            {donations && donations.items.length > 0 ? (
-              <ul className="mt-4 border-t border-rule">
-                {donations.items.map((d) => (
-                  <li
-                    key={d.txHash}
-                    className="figure flex justify-between gap-4 border-b border-rule py-3 text-sm"
-                  >
-                    <Link href={`/donors/${d.donor}`} className="link">
-                      {shortAddress(d.donor, 6)}
-                    </Link>
-                    <span className="text-ink-muted">{formatDate(d.createdAt)}</span>
-                    <span className="text-ink">{formatAmount(d.amount)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-ink-muted">No donations yet. Yours could be the first.</p>
-            )}
+            <RecentDonations
+              campaignId={campaign.id}
+              initialDonations={donations ? donations.items : null}
+              initialTotal={
+                donations?.total ?? (campaign.donorCount > 0 ? campaign.donorCount : undefined)
+              }
+            />
           </section>
         </div>
 
@@ -165,6 +173,7 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
                 goal={campaign.goal}
                 raised={campaign.raised}
                 released={campaign.released}
+                refunded={campaign.refunded}
                 size="lg"
               />
               <p className="mt-4 flex justify-between text-sm text-ink-muted">
@@ -178,6 +187,8 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
                 </span>
               </p>
             </section>
+
+            <SponsorPool pool={sponsorPool} />
 
             <section>
               {campaign.status === 'active' && <DonatePanel campaign={campaign} />}

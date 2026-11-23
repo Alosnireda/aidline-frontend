@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  amountInput,
+  capAmount,
   deadlineLabel,
   formatAmount,
   parseAmount,
@@ -44,6 +46,25 @@ describe('parseAmount', () => {
 
   it('round trips with formatAmount', () => {
     expect(formatAmount(parseAmount('42.25')!)).toBe('42.25 XLM');
+  });
+});
+
+describe('capAmount', () => {
+  it('uses the amount when the limit is unknown or higher', () => {
+    expect(capAmount(100n, null)).toBe(100n);
+    expect(capAmount(100n, 200n)).toBe(100n);
+  });
+
+  it('caps the amount at a lower wallet balance', () => {
+    expect(capAmount(100n, 40n)).toBe(40n);
+  });
+});
+
+describe('amountInput', () => {
+  it('keeps every decimal without a symbol or grouping', () => {
+    expect(amountInput(123_450_000_000n)).toBe('12345');
+    expect(amountInput(1n)).toBe('0.0000001');
+    expect(parseAmount(amountInput(123_456_789n))).toBe(123_456_789n);
   });
 });
 

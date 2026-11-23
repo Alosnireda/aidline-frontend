@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 
 // #147: Pure funding bar arithmetic extracted from FundingBar.tsx
 export function fundingBreakdown(goal: string, raised: string, released: string) {
-  const g = BigInt(goal), r = BigInt(raised), rel = BigInt(released);
+  const g = BigInt(goal),
+    r = BigInt(raised),
+    rel = BigInt(released);
   const escrow = r - rel;
   const needed = g - r;
   return { escrow: escrow.toString(), needed: needed.toString() };
