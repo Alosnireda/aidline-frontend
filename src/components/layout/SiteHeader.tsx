@@ -1,19 +1,11 @@
-import Link from 'next/link';
-
 import { Container } from '@/components/ui/Container';
 import { CurrencyPicker } from '@/components/ui/CurrencyPicker';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { WrongNetworkBanner } from '@/components/wallet/WrongNetworkBanner';
 import { config } from '@/lib/config';
 
+import { NavLinks } from './NavLinks';
 import { Wordmark } from './Wordmark';
-
-const NAV = [
-  { href: '/campaigns', label: 'Campaigns' },
-  { href: '/verifiers', label: 'Verifiers' },
-  { href: '/how-it-works', label: 'How it works' },
-  { href: '/start', label: 'Start a campaign' },
-];
 
 export function SiteHeader() {
   return (
@@ -28,28 +20,20 @@ export function SiteHeader() {
             </span>
           )}
         </div>
-        <nav aria-label="Main" className="hidden items-center gap-7 text-[0.9375rem] md:flex">
-          {NAV.map((item) => (
-            <Link key={item.href} href={item.href} className="text-ink-soft hover:text-ink">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <NavLinks
+          ariaLabel="Main"
+          className="hidden items-center gap-7 text-[0.9375rem] md:flex"
+        />
         <div className="flex items-center gap-3">
           <CurrencyPicker />
           <WalletButton />
         </div>
       </Container>
-      <nav
-        aria-label="Main mobile"
+      <NavLinks
+        ariaLabel="Main mobile"
         className="flex gap-6 overflow-x-auto border-t border-rule px-4 py-2.5 text-sm md:hidden"
-      >
-        {NAV.map((item) => (
-          <Link key={item.href} href={item.href} className="shrink-0 text-ink-soft">
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+        itemClassName="shrink-0"
+      />
     </header>
   );
 }
