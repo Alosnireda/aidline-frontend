@@ -4,6 +4,7 @@ import {
   BASE_FEE,
   Contract,
   contract,
+  nativeToScVal,
   rpc,
   scValToNative,
   TransactionBuilder,
@@ -87,5 +88,44 @@ export async function getVerifierBond(verifier: string): Promise<VerifierBond | 
     remaining: BigInt(r.remaining as bigint | number | string),
     status: enumTag(r.status) as BondStatus,
     deregisteredAt: Number(r.deregistered_at ?? 0),
+  };
+}
+
+/** Reads the token allowance granted by `owner` to `spender` (e.g. the Aidline contract). */
+export async function tokenAllowance(owner: string, spender: string): Promise<bigint | null> {
+  const raw = await simulateRead(
+    config.tokenId,
+    'allowance',
+    new Address(owner).toScVal(),
+    new Address(spender).toScVal(),
+  );
+  return raw === null || raw === undefined ? null : BigInt(raw as bigint | number | string);
+}
+
+export interface Pledge {
+  pledgeId: string;
+  donor: string;
+  campaignId: string;
+  pledgedAmount: bigint;
+  pulledAmount: bigint;
+  active: boolean;
+}
+
+/** Returns the on-chain `Pledge` record for `pledgeId`, or `null` if not found. */
+export async function getPledge(pledgeId: string | bigint): Promise<Pledge | null> {
+  const raw = await simulateRead(
+    config.contractId,
+    'get_pledge',
+    nativeToScVal(BigInt(pledgeId), { type: 'u64' }),
+  );
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    pledgeId: String(r.pledge_id),
+    donor: String(r.donor),
+    campaignId: String(r.campaign_id),
+    pledgedAmount: BigInt(r.pledged_amount as bigint | number | string),
+    pulledAmount: BigInt(r.pulled_amount as bigint | number | string),
+    active: Boolean(r.active),
   };
 }

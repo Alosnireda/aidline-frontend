@@ -18,6 +18,7 @@ const CONTRACT_ERRORS: Record<number, string> = {
   20: 'This bond is not ready to withdraw yet, or nothing remains to withdraw.',
   21: 'The bond withdrawal waiting period has not finished yet.',
   22: 'The slash amount is larger than the remaining bond.',
+  23: 'This pledge is invalid. Check that the amount is above zero and that you have approved enough token allowance for the contract.',
 };
 
 /**
