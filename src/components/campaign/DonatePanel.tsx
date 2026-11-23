@@ -6,6 +6,7 @@ import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, type CampaignDetail } from '@/lib/api';
 import { config } from '@/lib/config';
+import { availablePresets, initialDonateInput } from '@/lib/donateAmount';
 import { useFiat } from '@/lib/fiat';
 import { amountInput, capAmount, formatAmount, parseAmount } from '@/lib/format';
 import { aidline } from '@/lib/stellar/tx';
@@ -17,10 +18,10 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   const { address, state: wallet, balance, connect, sign, refreshBalance } = useWallet();
   const { state, run, busy } = useTx();
   const { formatFiat } = useFiat();
-  const [input, setInput] = useState('50');
-  const [lastAmount, setLastAmount] = useState<bigint>(0n);
-
   const remaining = BigInt(campaign.goal) - BigInt(campaign.raised);
+  const [input, setInput] = useState(() => initialDonateInput(remaining));
+  const [lastAmount, setLastAmount] = useState<bigint>(0n);
+  const presets = availablePresets(PRESETS, remaining);
   const rest = capAmount(remaining, balance);
   const restInput = amountInput(rest);
   const restLabel = formatAmount(rest, { maxFraction: config.tokenDecimals });
@@ -51,10 +52,16 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
     if (!address || amount === null || invalid) return;
     setLastAmount(amount);
     const before = BigInt(campaign.raised);
-    await run(
+    const result = await run(
       (on) => aidline.donate(address, campaign.id, amount, sign, on),
       async () => BigInt((await api.campaign(campaign.id)).raised) > before,
     );
+    if (result) {
+      const updated = await api.campaign(campaign.id).catch(() => null);
+      if (updated) {
+        setInput(initialDonateInput(BigInt(updated.goal) - BigInt(updated.raised)));
+      }
+    }
     refreshBalance();
   };
 
@@ -90,7 +97,7 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        {PRESETS.map((p) => (
+        {presets.map((p) => (
           <button
             key={p}
             type="button"

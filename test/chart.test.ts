@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeChartPoints, formatAxisValue, toTokenUnits } from '@/lib/chart';
+import {
+  computeChartPoints,
+  formatAxisValue,
+  labelIndices,
+  tickLabel,
+  toTokenUnits,
+  toXlm,
+} from '@/lib/chart';
 
 const geometry = {
   width: 600,
@@ -55,7 +62,8 @@ describe('formatAxisValue', () => {
     expect(formatAxisValue(12500)).toBe('12,500');
     expect(formatAxisValue(1234567.4)).toBe('1,234,567');
     expect(formatAxisValue(0)).toBe('0');
-import { labelIndices, tickLabel, toXlm } from '@/lib/chart';
+  });
+});
 
 describe('toXlm', () => {
   it('keeps the fraction of an amount under one XLM', () => {

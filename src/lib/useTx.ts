@@ -6,14 +6,18 @@ import { useCallback, useState } from 'react';
 import { describeError } from './stellar/errors';
 import type { Status, TxResult } from './stellar/tx';
 
+type StatusPhase = Exclude<Status, { phase: 'prepared' }>;
+export type TxPhase = 'preparing' | 'prepared' | StatusPhase | 'syncing';
+
 export type TxState =
   | { phase: 'idle' }
-  | { phase: 'preparing' | Status | 'syncing' }
+  | { phase: TxPhase; fee?: string }
   | { phase: 'done'; hash: string }
   | { phase: 'error'; message: string };
 
-export const PHASE_LABEL: Record<string, string> = {
+export const PHASE_LABEL: Record<TxPhase, string> = {
   preparing: 'Preparing transaction',
+  prepared: 'Preparing transaction',
   signing: 'Waiting for your signature in your wallet',
   submitting: 'Submitting to the network',
   confirming: 'Confirming on the ledger',
@@ -36,7 +40,9 @@ export function useTx() {
     ): Promise<TxResult<T> | null> => {
       setState({ phase: 'preparing' });
       try {
-        const result = await send((s) => setState({ phase: s }));
+        const result = await send((s) =>
+          setState(typeof s === 'string' ? { phase: s } : { phase: 'prepared', fee: s.fee }),
+        );
         setState({ phase: 'syncing' });
         if (synced) {
           for (let i = 0; i < 12; i++) {
