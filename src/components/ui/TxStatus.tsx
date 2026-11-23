@@ -25,6 +25,8 @@ export function TxStatus({ state, success }: { state: TxState; success: React.Re
     <p role="status" className="mt-4 flex items-center gap-2.5 text-[0.9375rem] text-ink">
       <span className="inline-block h-2 w-2 animate-pulse bg-ink" aria-hidden="true" />
       {PHASE_LABEL[state.phase]}
+      {/* #145: Show network fee when available */}
+      {state.fee && <span className="text-ink-muted"> · Network fee about {state.fee} XLM</span>}
     </p>
   );
 }

@@ -31,7 +31,9 @@ export async function invoke<T = unknown>(
   method: string,
   args: xdr.ScVal[],
   sign: Signer,
-  onStatus?: (status: 'signing' | 'submitting' | 'confirming') => void,
+  onStatus?: (
+    status: 'signing' | 'submitting' | 'confirming' | { phase: 'prepared'; fee: string },
+  ) => void,
 ): Promise<TxResult<T>> {
   const rpcServer = server();
   const account = await rpcServer.getAccount(source);
@@ -44,6 +46,9 @@ export async function invoke<T = unknown>(
     .build();
 
   const prepared = await rpcServer.prepareTransaction(built);
+  // #145: Report the prepared fee before asking the wallet to sign
+  const feeStroops = prepared.toXDR ? '0' : String(fee);
+  onStatus?.({ phase: 'prepared', fee: feeStroops });
   onStatus?.('signing');
   const signed = await sign(prepared.toXDR());
 
