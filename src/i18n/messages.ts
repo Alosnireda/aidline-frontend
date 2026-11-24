@@ -1,0 +1,290 @@
+/**
+ * Interface copy in every supported language.
+ *
+ * English is the source. French and Spanish are typed against its keys, so a missing
+ * translation is a compile error, and test/i18n.test.ts also checks that placeholders match
+ * and that plural keys come in pairs. Copy follows the voice rules in DESIGN.md: plain and
+ * specific, sentence case, no exclamation marks, no emoji.
+ *
+ * Campaign content (titles, summaries, descriptions, organiser names) is not interface copy
+ * and is never translated. It is shown in the language its author wrote it in.
+ *
+ * Placeholders are written {name}. Plural keys come as `<base>.one` and `<base>.other`.
+ */
+export const en = {
+  'nav.campaigns': 'Campaigns',
+  'nav.verifiers': 'Verifiers',
+  'nav.howItWorks': 'How it works',
+  'nav.start': 'Start a campaign',
+  'nav.verify': 'Verifier queue',
+
+  'lang.label': 'Language',
+
+  'footer.tagline': 'Give back home. See exactly where it lands.',
+  'footer.disclaimer':
+    'Aidline is open source and runs on Stellar {network}. The contracts have not been audited yet, so please do not send real funds.',
+  'footer.platform': 'Platform',
+  'footer.openSource': 'Open source',
+  'footer.contracts': 'Contracts',
+  'footer.backend': 'Backend',
+  'footer.frontend': 'Frontend',
+  'footer.contractOnExplorer': 'Contract on explorer',
+
+  'wallet.connect': 'Connect wallet',
+  'wallet.connectedWith': 'Connected with {name}',
+  'wallet.connected': 'Connected',
+  'wallet.balance': 'Balance',
+  'wallet.notFunded': 'Not funded yet',
+  'wallet.friendbot': 'Fund this testnet wallet with Friendbot',
+  'wallet.addressCopied': 'Address copied',
+  'wallet.copyAddress': 'Copy address',
+  'wallet.myGiving': 'My giving',
+  'wallet.viewOnExplorer': 'View on explorer',
+  'wallet.disconnect': 'Disconnect',
+
+  'campaign.fallbackTitle': 'Campaign #{id}',
+  'card.unknownLocation': 'Unknown location',
+  'card.endingSoon': 'Ending soon',
+  'card.raisedBy': 'Raised by {name}',
+  'card.milestones': '{released} of {total} milestones verified',
+  'card.donors.one': '{count} donor',
+  'card.donors.other': '{count} donors',
+  'status.active': 'Open',
+  'status.completed': 'Fully released',
+  'status.cancelled': 'Cancelled',
+  'status.expired': 'Ended',
+
+  'deadline.today': 'Ends today',
+  'deadline.days.one': '{count} day left',
+  'deadline.days.other': '{count} days left',
+  'deadline.ended': 'Ended {date}',
+
+  'backed.mark': 'You backed this campaign',
+
+  'tx.progress': 'Transaction progress',
+  'tx.step.build': 'Build',
+  'tx.step.sign': 'Sign',
+  'tx.step.submit': 'Submit',
+  'tx.step.confirmed': 'Confirmed',
+  'tx.status.done': 'Done',
+  'tx.status.current': 'In progress',
+  'tx.status.failed': 'Failed',
+  'tx.status.upcoming': 'Waiting',
+  'tx.phase.preparing': 'Preparing transaction',
+  'tx.phase.signing': 'Waiting for your signature in your wallet',
+  'tx.phase.submitting': 'Submitting to the network',
+  'tx.phase.confirming': 'Confirming on the ledger',
+  'tx.phase.syncing': 'Updating the page',
+  'tx.fee': 'Network fee about {fee} XLM',
+  'tx.hash': 'Transaction hash',
+  'tx.view': 'View transaction',
+  'tx.live': 'Step {n} of {total}: {step}. {description}',
+
+  'verify.kicker': 'Verifier queue',
+  'verify.title': 'Milestones waiting for your review',
+  'verify.intro':
+    'Active campaigns where your connected wallet is the verifier, with the next milestone to review.',
+  'verify.connect.title': 'Connect your wallet',
+  'verify.connect.body':
+    'Connect the wallet registered as a verifier to see the campaigns waiting for you.',
+  'verify.loading': 'Loading your campaigns',
+  'verify.error.title': 'Your queue could not be loaded',
+  'verify.error.body': 'The Aidline API is not responding.',
+  'verify.error.retry': 'Try again',
+  'verify.empty.title': 'Nothing to review',
+  'verify.empty.body':
+    'This wallet is not the verifier on any active campaign. A campaign creator names the verifier when starting it.',
+  'verify.empty.apply': 'Apply to become a verifier',
+  'verify.count.one': '{count} campaign to review',
+  'verify.count.other': '{count} campaigns to review',
+  'verify.next': 'Next: milestone {number} of {total}, {amount}',
+  'verify.funded': 'Funds for this milestone are in escrow.',
+  'verify.unfunded': 'Waiting for enough donations to fund this milestone.',
+  'verify.review': 'Review and release',
+};
+
+export type MessageKey = keyof typeof en;
+
+export const fr: Record<MessageKey, string> = {
+  'nav.campaigns': 'Campagnes',
+  'nav.verifiers': 'Vérificateurs',
+  'nav.howItWorks': 'Comment ça marche',
+  'nav.start': 'Lancer une campagne',
+  'nav.verify': 'File de vérification',
+
+  'lang.label': 'Langue',
+
+  'footer.tagline': "Aidez les vôtres au pays. Voyez exactement où va l'argent.",
+  'footer.disclaimer':
+    "Aidline est open source et fonctionne sur Stellar {network}. Les contrats n'ont pas encore été audités : n'envoyez pas de fonds réels.",
+  'footer.platform': 'Plateforme',
+  'footer.openSource': 'Open source',
+  'footer.contracts': 'Contrats',
+  'footer.backend': 'Backend',
+  'footer.frontend': 'Frontend',
+  'footer.contractOnExplorer': "Contrat sur l'explorateur",
+
+  'wallet.connect': 'Connecter le portefeuille',
+  'wallet.connectedWith': 'Connecté avec {name}',
+  'wallet.connected': 'Connecté',
+  'wallet.balance': 'Solde',
+  'wallet.notFunded': 'Pas encore approvisionné',
+  'wallet.friendbot': 'Approvisionner ce portefeuille testnet avec Friendbot',
+  'wallet.addressCopied': 'Adresse copiée',
+  'wallet.copyAddress': "Copier l'adresse",
+  'wallet.myGiving': 'Mes dons',
+  'wallet.viewOnExplorer': "Voir sur l'explorateur",
+  'wallet.disconnect': 'Déconnecter',
+
+  'campaign.fallbackTitle': 'Campagne n° {id}',
+  'card.unknownLocation': 'Lieu inconnu',
+  'card.endingSoon': 'Bientôt terminée',
+  'card.raisedBy': 'Organisée par {name}',
+  'card.milestones': 'Étapes vérifiées : {released} sur {total}',
+  'card.donors.one': '{count} donateur',
+  'card.donors.other': '{count} donateurs',
+  'status.active': 'Ouverte',
+  'status.completed': 'Entièrement versée',
+  'status.cancelled': 'Annulée',
+  'status.expired': 'Terminée',
+
+  'deadline.today': "Se termine aujourd'hui",
+  'deadline.days.one': '{count} jour restant',
+  'deadline.days.other': '{count} jours restants',
+  'deadline.ended': 'Terminée le {date}',
+
+  'backed.mark': 'Vous avez soutenu cette campagne',
+
+  'tx.progress': 'Progression de la transaction',
+  'tx.step.build': 'Préparation',
+  'tx.step.sign': 'Signature',
+  'tx.step.submit': 'Envoi',
+  'tx.step.confirmed': 'Confirmée',
+  'tx.status.done': 'Terminé',
+  'tx.status.current': 'En cours',
+  'tx.status.failed': 'Échec',
+  'tx.status.upcoming': 'En attente',
+  'tx.phase.preparing': 'Préparation de la transaction',
+  'tx.phase.signing': 'En attente de votre signature dans votre portefeuille',
+  'tx.phase.submitting': 'Envoi au réseau',
+  'tx.phase.confirming': 'Confirmation sur le registre',
+  'tx.phase.syncing': 'Mise à jour de la page',
+  'tx.fee': "Frais de réseau d'environ {fee} XLM",
+  'tx.hash': 'Hash de la transaction',
+  'tx.view': 'Voir la transaction',
+  'tx.live': 'Étape {n} sur {total} : {step}. {description}',
+
+  'verify.kicker': 'File de vérification',
+  'verify.title': 'Étapes en attente de votre examen',
+  'verify.intro':
+    'Les campagnes actives dont le portefeuille connecté est le vérificateur, avec la prochaine étape à examiner.',
+  'verify.connect.title': 'Connectez votre portefeuille',
+  'verify.connect.body':
+    'Connectez le portefeuille enregistré comme vérificateur pour voir les campagnes qui vous attendent.',
+  'verify.loading': 'Chargement de vos campagnes',
+  'verify.error.title': "Votre file n'a pas pu être chargée",
+  'verify.error.body': "L'API Aidline ne répond pas.",
+  'verify.error.retry': 'Réessayer',
+  'verify.empty.title': 'Rien à examiner',
+  'verify.empty.body':
+    "Ce portefeuille n'est le vérificateur d'aucune campagne active. Le créateur d'une campagne nomme son vérificateur au lancement.",
+  'verify.empty.apply': 'Postuler pour devenir vérificateur',
+  'verify.count.one': '{count} campagne à examiner',
+  'verify.count.other': '{count} campagnes à examiner',
+  'verify.next': 'Prochaine étape : {number} sur {total}, {amount}',
+  'verify.funded': 'Les fonds de cette étape sont en séquestre.',
+  'verify.unfunded': 'En attente de dons suffisants pour financer cette étape.',
+  'verify.review': 'Examiner et débloquer',
+};
+
+export const es: Record<MessageKey, string> = {
+  'nav.campaigns': 'Campañas',
+  'nav.verifiers': 'Verificadores',
+  'nav.howItWorks': 'Cómo funciona',
+  'nav.start': 'Iniciar una campaña',
+  'nav.verify': 'Cola de verificación',
+
+  'lang.label': 'Idioma',
+
+  'footer.tagline': 'Ayuda a los tuyos en casa. Mira exactamente dónde llega.',
+  'footer.disclaimer':
+    'Aidline es de código abierto y funciona en Stellar {network}. Los contratos aún no han sido auditados, así que no envíes fondos reales.',
+  'footer.platform': 'Plataforma',
+  'footer.openSource': 'Código abierto',
+  'footer.contracts': 'Contratos',
+  'footer.backend': 'Backend',
+  'footer.frontend': 'Frontend',
+  'footer.contractOnExplorer': 'Contrato en el explorador',
+
+  'wallet.connect': 'Conectar billetera',
+  'wallet.connectedWith': 'Conectado con {name}',
+  'wallet.connected': 'Conectado',
+  'wallet.balance': 'Saldo',
+  'wallet.notFunded': 'Aún sin fondos',
+  'wallet.friendbot': 'Fondear esta billetera de testnet con Friendbot',
+  'wallet.addressCopied': 'Dirección copiada',
+  'wallet.copyAddress': 'Copiar dirección',
+  'wallet.myGiving': 'Mis donaciones',
+  'wallet.viewOnExplorer': 'Ver en el explorador',
+  'wallet.disconnect': 'Desconectar',
+
+  'campaign.fallbackTitle': 'Campaña n.º {id}',
+  'card.unknownLocation': 'Ubicación desconocida',
+  'card.endingSoon': 'Termina pronto',
+  'card.raisedBy': 'Organizada por {name}',
+  'card.milestones': 'Hitos verificados: {released} de {total}',
+  'card.donors.one': '{count} donante',
+  'card.donors.other': '{count} donantes',
+  'status.active': 'Abierta',
+  'status.completed': 'Totalmente liberada',
+  'status.cancelled': 'Cancelada',
+  'status.expired': 'Finalizada',
+
+  'deadline.today': 'Termina hoy',
+  'deadline.days.one': 'Queda {count} día',
+  'deadline.days.other': 'Quedan {count} días',
+  'deadline.ended': 'Finalizó el {date}',
+
+  'backed.mark': 'Apoyaste esta campaña',
+
+  'tx.progress': 'Progreso de la transacción',
+  'tx.step.build': 'Preparar',
+  'tx.step.sign': 'Firmar',
+  'tx.step.submit': 'Enviar',
+  'tx.step.confirmed': 'Confirmada',
+  'tx.status.done': 'Hecho',
+  'tx.status.current': 'En curso',
+  'tx.status.failed': 'Falló',
+  'tx.status.upcoming': 'En espera',
+  'tx.phase.preparing': 'Preparando la transacción',
+  'tx.phase.signing': 'Esperando tu firma en tu billetera',
+  'tx.phase.submitting': 'Enviando a la red',
+  'tx.phase.confirming': 'Confirmando en el libro mayor',
+  'tx.phase.syncing': 'Actualizando la página',
+  'tx.fee': 'Comisión de red de unos {fee} XLM',
+  'tx.hash': 'Hash de la transacción',
+  'tx.view': 'Ver la transacción',
+  'tx.live': 'Paso {n} de {total}: {step}. {description}',
+
+  'verify.kicker': 'Cola de verificación',
+  'verify.title': 'Hitos esperando tu revisión',
+  'verify.intro':
+    'Campañas activas en las que la billetera conectada es la verificadora, con el siguiente hito por revisar.',
+  'verify.connect.title': 'Conecta tu billetera',
+  'verify.connect.body':
+    'Conecta la billetera registrada como verificadora para ver las campañas que te esperan.',
+  'verify.loading': 'Cargando tus campañas',
+  'verify.error.title': 'No se pudo cargar tu cola',
+  'verify.error.body': 'La API de Aidline no responde.',
+  'verify.error.retry': 'Reintentar',
+  'verify.empty.title': 'Nada que revisar',
+  'verify.empty.body':
+    'Esta billetera no es verificadora de ninguna campaña activa. Quien crea una campaña nombra a su verificador al iniciarla.',
+  'verify.empty.apply': 'Solicitar ser verificador',
+  'verify.count.one': '{count} campaña por revisar',
+  'verify.count.other': '{count} campañas por revisar',
+  'verify.next': 'Siguiente: hito {number} de {total}, {amount}',
+  'verify.funded': 'Los fondos de este hito están en depósito en garantía.',
+  'verify.unfunded': 'Esperando donaciones suficientes para financiar este hito.',
+  'verify.review': 'Revisar y liberar',
+};
