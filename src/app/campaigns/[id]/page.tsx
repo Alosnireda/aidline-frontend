@@ -8,6 +8,7 @@ import { DonatePanel } from '@/components/campaign/DonatePanel';
 import { FundingBar } from '@/components/campaign/FundingBar';
 import { KIND, STATUS_LABEL } from '@/components/campaign/kind';
 import { MilestoneLedger } from '@/components/campaign/MilestoneLedger';
+import { OnChainProofPanel } from '@/components/campaign/OnChainProofPanel';
 import { RecentDonations } from '@/components/campaign/RecentDonations';
 import { RefundPanel } from '@/components/campaign/RefundPanel';
 import { SponsorPool } from '@/components/campaign/SponsorPool';
@@ -23,7 +24,7 @@ import {
   splitParagraphs,
 } from '@/lib/format';
 import { safe } from '@/lib/safe';
-import { getSponsorPool } from '@/lib/stellar/balance';
+import { getCampaignEscrow, getSponsorPool } from '@/lib/stellar/balance';
 
 async function load(id: string) {
   if (!/^\d+$/.test(id)) notFound();
@@ -50,14 +51,17 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
   const sponsorCandidates = [campaign.sponsor, campaign.creator].filter(
     (v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i,
   );
-  const [verifier, ...pools] = await Promise.all([
+  const [verifier, onChainEscrow, ...pools] = await Promise.all([
     safe(() => api.verifier(campaign.verifier)),
+    safe(() => getCampaignEscrow(campaign.id)),
     ...sponsorCandidates.map((sponsor) => safe(() => getSponsorPool(campaign.id, sponsor))),
   ]);
   const sponsorPool = pools.find((p) => p !== null) ?? null;
   const k = KIND[campaign.kind];
   const m = campaign.metadata;
   const refundable = campaign.status === 'cancelled' || campaign.status === 'expired';
+  const apiEscrow =
+    BigInt(campaign.raised) - BigInt(campaign.released) - BigInt(campaign.refunded ?? '0');
 
   return (
     <article>
@@ -187,6 +191,11 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
                 </span>
               </p>
             </section>
+
+            <OnChainProofPanel
+              apiEscrow={apiEscrow > 0n ? apiEscrow : 0n}
+              onChainEscrow={onChainEscrow}
+            />
 
             <SponsorPool pool={sponsorPool} />
 
