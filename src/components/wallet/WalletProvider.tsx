@@ -249,3 +249,8 @@ export function useWallet(): WalletContextValue {
   if (!ctx) throw new Error('useWallet must be used inside WalletProvider');
   return ctx;
 }
+
+/** Like `useWallet`, but null outside the provider. For components that also render in Storybook. */
+export function useOptionalWallet(): WalletContextValue | null {
+  return useContext(WalletContext);
+}

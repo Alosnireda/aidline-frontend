@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { Container } from '@/components/ui/Container';
 import { CurrencyPicker } from '@/components/ui/CurrencyPicker';
 import { WalletButton } from '@/components/wallet/WalletButton';
@@ -25,6 +26,7 @@ export function SiteHeader() {
           className="hidden items-center gap-7 text-[0.9375rem] md:flex"
         />
         <div className="flex items-center gap-3">
+          <LanguageSwitcher />
           <CurrencyPicker />
           <WalletButton />
         </div>

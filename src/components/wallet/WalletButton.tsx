@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import { useI18n } from '@/components/i18n/I18nProvider';
 import { config, explorer } from '@/lib/config';
 import { formatAmount, shortAddress } from '@/lib/format';
 
@@ -10,6 +11,7 @@ import { useWallet } from './WalletProvider';
 
 export function WalletButton() {
   const { state, balance, connect, disconnect, error } = useWallet();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,7 +38,7 @@ export function WalletButton() {
     return (
       <div className="relative">
         <button type="button" className="btn btn-primary" onClick={() => void connect()}>
-          Connect wallet
+          {t('wallet.connect')}
         </button>
         {error && (
           <p
@@ -85,14 +87,17 @@ export function WalletButton() {
         >
           <div className="border-b border-rule p-4">
             <p className="kicker">
-              {state.walletName ? `Connected with ${state.walletName}` : 'Connected'} ·{' '}
+              {state.walletName
+                ? t('wallet.connectedWith', { name: state.walletName })
+                : t('wallet.connected')}{' '}
+              ·{' '}
               {config.network}
             </p>
             <p className="figure mt-2 break-all text-[0.8125rem] text-ink">{state.address}</p>
             <p className="mt-3 flex items-baseline justify-between">
-              <span className="text-ink-muted">Balance</span>
+              <span className="text-ink-muted">{t('wallet.balance')}</span>
               <span className="figure text-base text-ink">
-                {balance === null ? 'Not funded yet' : formatAmount(balance, { maxFraction: 4 })}
+                {balance === null ? t('wallet.notFunded') : formatAmount(balance, { maxFraction: 4 })}
               </span>
             </p>
             {balance === null && config.network === 'testnet' && (
@@ -102,7 +107,7 @@ export function WalletButton() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Fund this testnet wallet with Friendbot
+                {t('wallet.friendbot')}
               </a>
             )}
           </div>
@@ -113,7 +118,7 @@ export function WalletButton() {
               className="block w-full px-4 py-2 text-left text-ink hover:bg-paper-sunk"
               onClick={() => void copy()}
             >
-              {copied ? 'Address copied' : 'Copy address'}
+              {copied ? t('wallet.addressCopied') : t('wallet.copyAddress')}
             </button>
             <Link
               href={`/donors/${state.address}`}
@@ -121,7 +126,7 @@ export function WalletButton() {
               className="block px-4 py-2 text-ink hover:bg-paper-sunk"
               onClick={() => setOpen(false)}
             >
-              My giving
+              {t('wallet.myGiving')}
             </Link>
             <a
               href={explorer.account(state.address)}
@@ -130,7 +135,7 @@ export function WalletButton() {
               role="menuitem"
               className="block px-4 py-2 text-ink hover:bg-paper-sunk"
             >
-              View on explorer
+              {t('wallet.viewOnExplorer')}
             </a>
             <button
               type="button"
@@ -141,7 +146,7 @@ export function WalletButton() {
                 void disconnect();
               }}
             >
-              Disconnect
+              {t('wallet.disconnect')}
             </button>
           </div>
         </div>

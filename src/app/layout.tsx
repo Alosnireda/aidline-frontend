@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
@@ -29,14 +30,16 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
-        <FiatProvider>
-          <WalletProvider>
-            <ServiceWorkerRegister />
-            <SiteHeader />
-            <main className="flex-1">{children}</main>
-            <SiteFooter />
-          </WalletProvider>
-        </FiatProvider>
+        <I18nProvider>
+          <FiatProvider>
+            <WalletProvider>
+              <ServiceWorkerRegister />
+              <SiteHeader />
+              <main className="flex-1">{children}</main>
+              <SiteFooter />
+            </WalletProvider>
+          </FiatProvider>
+        </I18nProvider>
       </body>
     </html>
   );

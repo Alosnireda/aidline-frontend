@@ -18,6 +18,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - Chart of donations and releases over time on the home page (#28, @infimum90)
 - Storybook for design system components (#29, @infimum90)
 - Embeddable donate widget for association websites (#30, @infimum90)
+- Transaction stepper (build, sign, submit, confirmed) in place of the one line status, used by donate, refund, release, cancel and create, ending with the hash and explorer link; a failure is shown at the step it happened at (#6)
+- Campaigns the connected wallet has donated to are marked on their cards, and a `/verify` page lists the active campaigns where the wallet is the verifier with the next milestone to review (#7)
+- Language switcher with English, French and Spanish, remembered between visits, on the header, footer, wallet menu, campaign cards, transaction stepper and verifier queue; the other pages are still English and are listed in `docs/i18n.md` (#8)
 
 ### Fixed
 

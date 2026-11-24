@@ -1,8 +1,9 @@
+import { T } from '@/components/i18n/T';
 import { explorer } from '@/lib/config';
 
 export function TxLink({
   hash,
-  children = 'View transaction',
+  children = <T k="tx.view" />,
 }: {
   hash: string;
   children?: React.ReactNode;
