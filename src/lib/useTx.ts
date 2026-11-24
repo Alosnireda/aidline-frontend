@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 
 import { describeError } from './stellar/errors';
 import type { Status, TxResult } from './stellar/tx';
+import { stepForPhase, type TxStepId } from './txSteps';
 
 type StatusPhase = Exclude<Status, { phase: 'prepared' }>;
 export type TxPhase = 'preparing' | 'prepared' | StatusPhase | 'syncing';
@@ -13,7 +14,7 @@ export type TxState =
   | { phase: 'idle' }
   | { phase: TxPhase; fee?: string }
   | { phase: 'done'; hash: string }
-  | { phase: 'error'; message: string };
+  | { phase: 'error'; message: string; failedAt?: TxStepId };
 
 export const PHASE_LABEL: Record<TxPhase, string> = {
   preparing: 'Preparing transaction',
@@ -38,11 +39,15 @@ export function useTx() {
       synced?: () => Promise<boolean>,
       contractErrors?: Record<number, string>,
     ): Promise<TxResult<T> | null> => {
+      // Remember how far the call got, so a failure is shown at the step it happened in.
+      let reached: TxPhase = 'preparing';
       setState({ phase: 'preparing' });
       try {
-        const result = await send((s) =>
-          setState(typeof s === 'string' ? { phase: s } : { phase: 'prepared', fee: s.fee }),
-        );
+        const result = await send((s) => {
+          reached = typeof s === 'string' ? s : 'prepared';
+          setState(typeof s === 'string' ? { phase: s } : { phase: 'prepared', fee: s.fee });
+        });
+        reached = 'syncing';
         setState({ phase: 'syncing' });
         if (synced) {
           for (let i = 0; i < 12; i++) {
@@ -54,7 +59,11 @@ export function useTx() {
         setState({ phase: 'done', hash: result.hash });
         return result;
       } catch (err) {
-        setState({ phase: 'error', message: describeError(err, contractErrors) });
+        setState({
+          phase: 'error',
+          message: describeError(err, contractErrors),
+          failedAt: stepForPhase(reached),
+        });
         return null;
       }
     },

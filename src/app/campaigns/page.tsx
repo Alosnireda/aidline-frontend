@@ -7,7 +7,11 @@ import { Notice } from '@/components/ui/Notice';
 import { api, type CampaignKind, type CampaignStatus } from '@/lib/api';
 import { safe } from '@/lib/safe';
 
-export const metadata: Metadata = { title: 'Campaigns' };
+export const metadata: Metadata = {
+  title: 'Campaigns',
+  // Filtered views (?kind=…) canonicalise to the list itself.
+  alternates: { canonical: '/campaigns' },
+};
 
 const KINDS: { value?: CampaignKind; label: string }[] = [
   { label: 'All' },

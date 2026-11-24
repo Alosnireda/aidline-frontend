@@ -1,15 +1,19 @@
 import type { Metadata } from 'next';
 
+import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { SiteFooter } from '@/components/layout/SiteFooter';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { WalletProvider } from '@/components/wallet/WalletProvider';
+import { config } from '@/lib/config';
 import { FiatProvider } from '@/lib/fiat';
 
 import { newsreader, plexMono, plexSans } from './fonts';
 import './globals.css';
 
 export const metadata: Metadata = {
+  // Resolves relative canonical, Open Graph and image URLs against the site origin.
+  metadataBase: new URL(config.siteUrl),
   title: {
     default: 'Aidline: diaspora giving you can trace',
     template: '%s · Aidline',
@@ -26,14 +30,16 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
-        <FiatProvider>
-          <WalletProvider>
-            <ServiceWorkerRegister />
-            <SiteHeader />
-            <main className="flex-1">{children}</main>
-            <SiteFooter />
-          </WalletProvider>
-        </FiatProvider>
+        <I18nProvider>
+          <FiatProvider>
+            <WalletProvider>
+              <ServiceWorkerRegister />
+              <SiteHeader />
+              <main className="flex-1">{children}</main>
+              <SiteFooter />
+            </WalletProvider>
+          </FiatProvider>
+        </I18nProvider>
       </body>
     </html>
   );
