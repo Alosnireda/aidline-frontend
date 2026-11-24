@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { T } from '@/components/i18n/T';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { Container } from '@/components/ui/Container';
 import { config, explorer } from '@/lib/config';
 
@@ -15,6 +16,7 @@ export function SiteFooter() {
           <p className="mt-3 text-ink-muted">
             <T k="footer.disclaimer" vars={{ network: config.network }} />
           </p>
+          <ThemeToggle />
         </div>
         <div>
           <p className="kicker mb-3">
