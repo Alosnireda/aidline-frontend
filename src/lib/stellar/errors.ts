@@ -13,12 +13,19 @@ const CONTRACT_ERRORS: Record<number, string> = {
   11: 'Refunds open once a campaign is cancelled or passes its deadline.',
   12: 'This wallet has nothing left to reclaim from this campaign.',
   13: 'This wallet is not allowed to do that.',
+  14: 'This campaign already has a sponsor matching pool.',
+  15: 'This campaign has no sponsor matching pool.',
+  16: 'The matching settings are not valid. Check the ratio and the cap, then try again.',
+  17: 'The unspent part of this sponsor pool cannot be returned yet.',
   18: 'A verifier bond of at least the required minimum amount is required to register.',
   19: 'No verifier bond was found for this wallet.',
   20: 'This bond is not ready to withdraw yet, or nothing remains to withdraw.',
   21: 'The bond withdrawal waiting period has not finished yet.',
   22: 'The slash amount is larger than the remaining bond.',
   23: 'This pledge is invalid. Check that the amount is above zero and that you have approved enough token allowance for the contract.',
+  24: 'This is not an emergency campaign, so it cannot take an advance.',
+  25: 'This campaign has already taken its emergency advance.',
+  26: 'That advance is larger than the amount held in escrow.',
 };
 
 /**
