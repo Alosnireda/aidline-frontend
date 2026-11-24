@@ -11,41 +11,32 @@ export function CampaignCover({
   campaign,
   className = '',
   alt,
-}: {
-  campaign: Pick<Campaign, 'kind' | 'metadata'>;
-  className?: string;
-  alt?: string;
-}) {
-  const m = campaign.metadata;
-  const location = m?.location ?? 'Location pending';
-  const coverAlt = alt ?? `${KIND[campaign.kind].label} in ${location}`;
-
-  if (m?.imageUrl) {
-    return (
-      // Campaign images come from arbitrary hosts, so next/image optimisation is not used.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={m.imageUrl} alt={coverAlt} className={`object-cover ${className}`} />
   loading = 'lazy',
 }: {
   campaign: Pick<Campaign, 'kind' | 'metadata'>;
   className?: string;
+  alt?: string;
   loading?: 'lazy' | 'eager';
 }) {
   const m = campaign.metadata;
+  const location = m?.location ?? 'Location pending';
+  const coverAlt = alt ?? `${KIND[campaign.kind].label} in ${location}`;
+  const imageUrl = m?.imageUrl ?? null;
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
-  if (m?.imageUrl && failedUrl !== m.imageUrl) {
+  if (imageUrl && failedUrl !== imageUrl) {
     return (
       // Campaign images come from arbitrary hosts, so next/image optimisation is not used.
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={m.imageUrl}
-        alt=""
+        src={imageUrl}
+        alt={coverAlt}
         loading={loading}
-        onError={() => setFailedUrl(m.imageUrl)}
+        onError={() => setFailedUrl(imageUrl)}
         className={`object-cover ${className}`}
       />
     );
   }
+
   return <TypographicCover kind={campaign.kind} location={location} className={className} />;
 }

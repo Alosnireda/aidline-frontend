@@ -6,7 +6,12 @@ import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, type CampaignDetail } from '@/lib/api';
 import { config } from '@/lib/config';
-import { availablePresets, initialDonateInput } from '@/lib/donateAmount';
+import {
+  isNativeToken,
+  reserveShortfall,
+  RESERVE_EXPLANATION,
+  XLM_SAFE_BALANCE_FLOOR,
+} from '@/lib/donationReserve';
 import { useFiat } from '@/lib/fiat';
 import { amountInput, capAmount, formatAmount, parseAmount, shortAddress } from '@/lib/format';
 import { getPledge, tokenAllowance, type Pledge } from '@/lib/stellar/balance';
@@ -58,7 +63,9 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   const [mode, setMode] = useState<'donate' | 'pledge'>('donate');
   const [input, setInput] = useState('50');
   const [lastAmount, setLastAmount] = useState<bigint>(0n);
-  const [lastAction, setLastAction] = useState<'donate' | 'approve' | 'pledge' | 'cancel'>('donate');
+  const [lastAction, setLastAction] = useState<'donate' | 'approve' | 'pledge' | 'cancel'>(
+    'donate',
+  );
   const [allowance, setAllowance] = useState<bigint | null>(null);
   const [pledges, setPledges] = useState<Pledge[]>([]);
   const [lookupId, setLookupId] = useState('');
@@ -92,16 +99,17 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   }, [loadDonorPledgeState]);
 
   const remaining = BigInt(campaign.goal) - BigInt(campaign.raised);
-  const [input, setInput] = useState(() => initialDonateInput(remaining));
-  const [lastAmount, setLastAmount] = useState<bigint>(0n);
-  const presets = availablePresets(PRESETS, remaining);
-  const rest = capAmount(remaining, balance);
+  const nativeToken = isNativeToken();
+  // Native XLM keeps a reserve, so only the spendable part may be donated.
+  const spendable =
+    balance === null ? null : nativeToken ? balance - XLM_SAFE_BALANCE_FLOOR : balance;
+  const rest = capAmount(remaining, spendable !== null && spendable > 0n ? spendable : 0n);
   const restInput = amountInput(rest);
   const restLabel = formatAmount(rest, { maxFraction: config.tokenDecimals });
   const amount = parseAmount(input);
   const fiatEstimate = amount ? formatFiat(amount) : null;
 
-  const invalid =
+  const baseInvalid =
     amount === null
       ? 'Enter an amount like 25 or 12.5'
       : amount <= 0n
@@ -112,12 +120,19 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
             ? `Your wallet holds ${formatAmount(balance)}`
             : null;
 
+  const reserveGap =
+    baseInvalid === null && mode === 'donate' && amount !== null
+      ? reserveShortfall(amount, balance, { native: nativeToken })
+      : null;
+
+  const invalid =
+    baseInvalid ??
+    (reserveGap !== null
+      ? `Keep at least ${formatAmount(XLM_SAFE_BALANCE_FLOOR)} ${config.tokenSymbol} for the reserve and fees`
+      : null);
+
   const needsAllowance =
-    mode === 'pledge' &&
-    amount !== null &&
-    !invalid &&
-    allowance !== null &&
-    allowance < amount;
+    mode === 'pledge' && amount !== null && !invalid && allowance !== null && allowance < amount;
 
   if (remaining <= 0n) {
     return (
@@ -147,16 +162,10 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
     setLastAction('donate');
     setLastAmount(amount);
     const before = BigInt(campaign.raised);
-    const result = await run(
+    await run(
       (on) => aidline.donate(address, campaign.id, amount, sign, on),
       async () => BigInt((await api.campaign(campaign.id)).raised) > before,
     );
-    if (result) {
-      const updated = await api.campaign(campaign.id).catch(() => null);
-      if (updated) {
-        setInput(initialDonateInput(BigInt(updated.goal) - BigInt(updated.raised)));
-      }
-    }
     refreshBalance();
   };
 
@@ -211,49 +220,6 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 border border-rule">
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void donate();
-      }}
-    >
-      <div className="flex items-center justify-between">
-        <label htmlFor="amount" className="label">
-          Amount
-        </label>
-        {fiatEstimate && (
-          <span className="figure font-mono text-xs text-ink-muted">{fiatEstimate}</span>
-        )}
-      </div>
-      <div className="flex">
-        <input
-          id="amount"
-          inputMode="decimal"
-          autoComplete="off"
-          className="field figure rounded-r-none text-lg"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          aria-invalid={Boolean(invalid)}
-          aria-describedby="amount-hint"
-          disabled={busy}
-        />
-        <span className="figure flex items-center border border-l-0 border-rule bg-paper-sunk px-3 text-ink-muted">
-          {config.tokenSymbol}
-        </span>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {presets.map((p) => (
-          <button
-            key={p}
-            type="button"
-            aria-pressed={input === p}
-            className={`figure border px-3 py-1 text-[0.8125rem] ${input === p ? 'border-ink text-ink' : 'border-rule text-ink-soft hover:border-ink'}`}
-            onClick={() => setInput(p)}
-            disabled={busy}
-          >
-            {p}
-          </button>
-        ))}
         <button
           type="button"
           className={`py-2 text-sm font-medium ${mode === 'donate' ? 'bg-ink text-paper' : 'bg-paper text-ink-muted hover:text-ink'}`}
@@ -341,7 +307,7 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
           {invalid && input
             ? invalid
             : mode === 'donate'
-              ? `Held in escrow until a verifier confirms each milestone. Up to ${formatAmount(remaining)} still needed.`
+              ? `Held in escrow until a verifier confirms each milestone. Up to ${formatAmount(remaining)} still needed.${nativeToken ? ` ${RESERVE_EXPLANATION}` : ''}`
               : 'Total amount you commit to this campaign. Tokens stay in your wallet and are pulled proportionally when milestones are approved.'}
         </p>
 
@@ -397,9 +363,7 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
               className="btn btn-primary mt-5 w-full"
               disabled={busy || Boolean(invalid)}
             >
-              {amount && !invalid
-                ? `Create pledge (${formatAmount(amount)})`
-                : 'Create pledge'}
+              {amount && !invalid ? `Create pledge (${formatAmount(amount)})` : 'Create pledge'}
             </button>
           )
         ) : (

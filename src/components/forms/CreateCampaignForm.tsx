@@ -17,6 +17,7 @@ import {
   type Verifier,
 } from '@/lib/api';
 import { config } from '@/lib/config';
+import { errorFieldId, errorSummary, fieldA11y } from '@/lib/formA11y';
 import { formatAmount, parseAmount, shortAddress, splitParagraphs } from '@/lib/format';
 import { describeError } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
@@ -25,7 +26,13 @@ import { useTx } from '@/lib/useTx';
 const DAY = 86_400_000;
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
+export function CreateCampaignForm({
+  verifiers,
+  verifiersUnavailable = false,
+}: {
+  verifiers: Verifier[];
+  verifiersUnavailable?: boolean;
+}) {
   const router = useRouter();
   const { address, state: wallet, connect, sign } = useWallet();
   const { state, run, busy } = useTx();
@@ -46,6 +53,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
   const [milestones, setMilestones] = useState(['', '']);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
   const uploadedMetadata = useRef<CachedUpload<string, null> | null>(null);
 
   const beneficiary = beneficiaryInput ?? address ?? '';
@@ -67,7 +75,11 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
     ? amounts.reduce<bigint>((sum, a) => sum + (a ?? 0n), 0n)
     : null;
 
-  const validate = () => {
+  /**
+   * Error keys are collected in visual order so the first entry is also the
+   * first field a keyboard user meets on the page.
+   */
+  const collectErrors = () => {
     const e: Record<string, string> = {};
     if (title.trim().length < 5) e.title = 'Use at least 5 characters.';
     if (summary.trim().length < 10) e.summary = 'Use at least 10 characters.';
@@ -77,17 +89,27 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
     if (!/^G[A-Z2-7]{55}$/.test(beneficiary.trim()))
       e.beneficiary = 'Enter a Stellar address starting with G.';
     if (!verifier) e.verifier = 'Choose a verifier.';
-    if (!deadline || deadline < minDate) e.deadline = 'Pick a date in the future.';
     amounts.forEach((a, i) => {
       if (a === null || a <= 0n) e[`m${i}`] = 'Enter an amount greater than zero.';
     });
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    if (!deadline || deadline < minDate) e.deadline = 'Pick a date in the future.';
+    return e;
   };
 
   const submit = async () => {
     setFormError(null);
-    if (!address || !validate()) return;
+    if (!address) return;
+
+    const validationErrors = collectErrors();
+    setErrors(validationErrors);
+
+    const invalidKeys = Object.keys(validationErrors);
+    if (invalidKeys.length > 0) {
+      setAnnouncement(errorSummary(invalidKeys.length));
+      const firstInvalidId = errorFieldId(invalidKeys[0]!);
+      requestAnimationFrame(() => document.getElementById(firstInvalidId)?.focus());
+      return;
+    }
 
     let metadataUri = reuseUpload(uploadedMetadata.current, metadataKey, null);
     if (!metadataUri) {
@@ -133,6 +155,18 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
     if (result) router.push(`/campaigns/${String(result.value)}`);
   };
 
+  if (verifiersUnavailable) {
+    return (
+      <div role="alert" className="border-y border-rule py-6">
+        <p className="font-medium">We could not load the list of verifiers.</p>
+        <p className="mt-1.5 text-[0.9375rem] text-ink-muted">
+          The campaign service is not answering right now, so this form cannot show who is able to
+          verify a campaign. Refresh the page to try again.
+        </p>
+      </div>
+    );
+  }
+
   if (verifiers.length === 0) {
     return (
       <p className="border-y border-rule py-6">
@@ -161,6 +195,10 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
         void submit();
       }}
     >
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
       <fieldset>
         <legend className="kicker mb-4">1. What kind of campaign</legend>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -189,8 +227,8 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
       </fieldset>
 
       <fieldset className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <legend className="kicker">2. The story donors will read</legend>
+        <legend className="kicker">2. The story donors will read</legend>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             className="btn btn-secondary text-xs"
@@ -198,7 +236,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           >
             {preview ? 'Edit story' : 'Preview'}
           </button>
-        <legend className="kicker mb-4">2. The story donors will read</legend>
+        </div>
         <div>
           <label className="label" htmlFor="title">
             Title
@@ -206,6 +244,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="title"
             className="field"
+            {...fieldA11y('title', errors)}
             value={title}
             onChange={(e) => {
               setTitle(e.target.value);
@@ -223,6 +262,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="summary"
             className="field"
+            {...fieldA11y('summary', errors)}
             value={summary}
             onChange={(e) => {
               setSummary(e.target.value);
@@ -239,6 +279,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="location"
             className="field"
+            {...fieldA11y('location', errors)}
             value={location}
             onChange={(e) => {
               setLocation(e.target.value);
@@ -256,6 +297,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="organizer"
             className="field"
+            {...fieldA11y('organizer', errors, 'organizer-hint')}
             value={organizer}
             onChange={(e) => {
               setOrganizer(e.target.value);
@@ -264,7 +306,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             placeholder="Haitian community association, Montreal"
             maxLength={120}
           />
-          <p className="hint">
+          <p className="hint" id="organizer-hint">
             Your group or community abroad. Donors trust campaigns they can place.
           </p>
           {err('organizer')}
@@ -276,6 +318,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <textarea
             id="description"
             className="field min-h-40"
+            {...fieldA11y('description', errors, 'description-hint')}
             value={description}
             onChange={(e) => {
               setDescription(e.target.value);
@@ -283,7 +326,9 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             }}
             maxLength={10000}
           />
-          <p className="hint">Leave a blank line between paragraphs.</p>
+          <p className="hint" id="description-hint">
+            Leave a blank line between paragraphs.
+          </p>
           {err('description')}
         </div>
         <div>
@@ -294,6 +339,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             id="image"
             type="url"
             className="field"
+            {...fieldA11y('imageUrl', errors, 'image-hint')}
             value={imageUrl}
             onChange={(e) => {
               setImageUrl(e.target.value);
@@ -301,7 +347,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             }}
             placeholder="https://"
           />
-          <p className="hint">
+          <p className="hint" id="image-hint">
             A real photo of the place or the work. Without one, a cover is drawn from the location.
           </p>
           {err('imageUrl')}
@@ -357,100 +403,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
               </section>
             ) : null}
           </div>
-        ) : (
-          <>
-            <div>
-              <label className="label" htmlFor="title">
-                Title
-              </label>
-              <input
-                id="title"
-                className="field"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                maxLength={120}
-                placeholder="Clean water after flooding in Les Cayes"
-              />
-              {err('title')}
-            </div>
-            <div>
-              <label className="label" htmlFor="summary">
-                One line summary
-              </label>
-              <input
-                id="summary"
-                className="field"
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                maxLength={280}
-              />
-              {err('summary')}
-            </div>
-            <div>
-              <label className="label" htmlFor="location">
-                Location
-              </label>
-              <input
-                id="location"
-                className="field"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Les Cayes, Haiti"
-                maxLength={120}
-              />
-              {err('location')}
-            </div>
-            <div>
-              <label className="label" htmlFor="organizer">
-                Raised by <span className="font-normal text-ink-muted">(optional)</span>
-              </label>
-              <input
-                id="organizer"
-                className="field"
-                value={organizer}
-                onChange={(e) => setOrganizer(e.target.value)}
-                placeholder="Haitian community association, Montreal"
-                maxLength={120}
-              />
-              <p className="hint">
-                Your group or community abroad. Donors trust campaigns they can place.
-              </p>
-              {err('organizer')}
-            </div>
-            <div>
-              <label className="label" htmlFor="description">
-                What is happening and what the money will do
-              </label>
-              <textarea
-                id="description"
-                className="field min-h-40"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                maxLength={10000}
-              />
-              <p className="hint">Leave a blank line between paragraphs.</p>
-              {err('description')}
-            </div>
-            <div>
-              <label className="label" htmlFor="image">
-                Cover photo URL <span className="font-normal text-ink-muted">(optional)</span>
-              </label>
-              <input
-                id="image"
-                type="url"
-                className="field"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://"
-              />
-              <p className="hint">
-                A real photo of the place or the work. Without one, a cover is drawn from the
-                location.
-              </p>
-              {err('imageUrl')}
-            </div>
-          </>
-        )}
+        ) : null}
       </fieldset>
 
       <fieldset className="space-y-5">
@@ -462,9 +415,11 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
                 <span className="figure w-6 text-sm text-ink-muted">{i + 1}</span>
                 <div className="flex flex-1">
                   <input
+                    id={`milestone-${i}`}
                     aria-label={`Milestone ${i + 1} amount`}
                     inputMode="decimal"
                     className="field figure rounded-r-none"
+                    {...fieldA11y(`m${i}`, errors)}
                     value={m}
                     placeholder="0"
                     onChange={(e) =>
@@ -486,7 +441,9 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
                 )}
               </div>
               {errors[`m${i}`] && (
-                <p className="mt-1.5 pl-9 text-[0.8125rem] text-danger">{errors[`m${i}`]}</p>
+                <p id={`m${i}-error`} className="mt-1.5 pl-9 text-[0.8125rem] text-danger">
+                  {errors[`m${i}`]}
+                </p>
               )}
             </li>
           ))}
@@ -518,11 +475,12 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             id="deadline"
             type="date"
             className="field figure"
+            {...fieldA11y('deadline', errors, 'deadline-hint')}
             value={deadline}
             min={minDate}
             onChange={(e) => setDeadline(e.target.value)}
           />
-          <p className="hint">
+          <p className="hint" id="deadline-hint">
             If milestones are not all verified by then, donors can reclaim unreleased funds.
           </p>
           {err('deadline')}
@@ -538,11 +496,12 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="beneficiary"
             className="field figure text-sm"
+            {...fieldA11y('beneficiary', errors, 'beneficiary-hint')}
             value={beneficiary}
             onChange={(e) => setBeneficiary(e.target.value)}
             placeholder="G..."
           />
-          <p className="hint">
+          <p className="hint" id="beneficiary-hint">
             Receives each milestone payout. Often the local organisation doing the work.
           </p>
           {err('beneficiary')}
@@ -554,6 +513,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <select
             id="verifier"
             className="field"
+            {...fieldA11y('verifier', errors, 'verifier-hint')}
             value={verifier}
             onChange={(e) => setVerifier(e.target.value)}
           >
@@ -565,7 +525,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
               </option>
             ))}
           </select>
-          <p className="hint">
+          <p className="hint" id="verifier-hint">
             An independent organisation that confirms each milestone before money moves.
           </p>
           {err('verifier')}
