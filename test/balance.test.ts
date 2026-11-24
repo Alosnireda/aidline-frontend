@@ -10,7 +10,7 @@ vi.mock('@/lib/config', () => ({
   },
 }));
 
-import { contributionOf, tokenBalance } from '@/lib/stellar/balance';
+import { contributionOf, getCampaignEscrow, tokenBalance } from '@/lib/stellar/balance';
 
 const donor = 'GDWUSKGGFDI4FRXK5EBTRECZSVQSSWJHHJOGH6JWG3AUMFFMQ435DIAG';
 
@@ -59,5 +59,37 @@ describe('tokenBalance', () => {
 
     const tx = simulate.mock.calls[0]![0] as SimulatedTransaction;
     expect(tx.operations[0]!.func.invokeContract.functionName.toString()).toBe('balance');
+  });
+});
+
+describe('getCampaignEscrow', () => {
+  it('reads the campaign totals from get_campaign and returns raised less released', async () => {
+    const campaign = xdr.ScVal.scvMap([
+      new xdr.ScMapEntry({
+        key: xdr.ScVal.scvSymbol('raised'),
+        val: nativeToScVal(125n, { type: 'i128' }),
+      }),
+      new xdr.ScMapEntry({
+        key: xdr.ScVal.scvSymbol('released'),
+        val: nativeToScVal(25n, { type: 'i128' }),
+      }),
+    ]);
+    const simulate = vi.spyOn(rpc.Server.prototype, 'simulateTransaction').mockResolvedValue({
+      result: { retval: campaign },
+    } as never);
+
+    await expect(getCampaignEscrow('7')).resolves.toBe(100n);
+
+    const tx = simulate.mock.calls[0]![0] as SimulatedTransaction;
+    const operation = tx.operations[0]!.func.invokeContract;
+    expect(operation.functionName.toString()).toBe('get_campaign');
+    expect(operation.args.map(scValToNative)).toEqual([7n]);
+  });
+
+  it('returns null when the contract read fails', async () => {
+    vi.spyOn(rpc.Server.prototype, 'simulateTransaction').mockResolvedValue({
+      error: 'contract unavailable',
+    } as never);
+    await expect(getCampaignEscrow('7')).resolves.toBeNull();
   });
 });

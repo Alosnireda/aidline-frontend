@@ -69,6 +69,31 @@ export async function tokenBalance(address: string): Promise<bigint | null> {
   return raw === null || raw === undefined ? null : BigInt(raw as bigint);
 }
 
+/** Reads the campaign's raised and released totals from the Aidline contract. */
+export async function getCampaignEscrow(campaignId: string | bigint): Promise<bigint | null> {
+  const raw = await simulateRead(
+    config.contractId,
+    'get_campaign',
+    nativeToScVal(BigInt(campaignId), { type: 'u64' }),
+  );
+  if (!raw || typeof raw !== 'object') return null;
+
+  const campaign = raw as Record<string, unknown>;
+  const raised = campaign.raised;
+  const released = campaign.released;
+  if (
+    (typeof raised !== 'bigint' && typeof raised !== 'number' && typeof raised !== 'string') ||
+    (typeof released !== 'bigint' &&
+      typeof released !== 'number' &&
+      typeof released !== 'string')
+  ) {
+    return null;
+  }
+
+  const escrow = BigInt(raised) - BigInt(released);
+  return escrow >= 0n ? escrow : null;
+}
+
 export type BondStatus = 'Active' | 'PendingWithdrawal' | 'Withdrawn' | 'Slashed';
 
 export interface VerifierBond {
