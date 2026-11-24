@@ -29,7 +29,10 @@ export default async function StartPage() {
         </div>
       </div>
       <div className="lg:col-span-7 lg:col-start-6">
-        <CreateCampaignForm verifiers={verifiers?.items ?? []} />
+        <CreateCampaignForm
+          verifiers={verifiers?.items ?? []}
+          verifiersUnavailable={verifiers === null}
+        />
       </div>
     </Container>
   );
