@@ -69,6 +69,8 @@ const axisFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 /** Axis tick label with thousands separators, e.g. "12,500". */
 export function formatAxisValue(value: number): string {
   return axisFormat.format(Math.round(value));
+}
+
 /**
  * Helpers for the donation and release chart. They live here so the arithmetic
  * can be unit tested without rendering SVG.

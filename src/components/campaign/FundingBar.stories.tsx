@@ -53,3 +53,26 @@ export const CompactNoFigures: Story = {
     showFigures: false,
   },
 };
+
+export const OverFunded: Story = {
+  args: {
+    kind: 'climate',
+    goal: '1000000000',
+    raised: '1300000000',
+    released: '700000000',
+    size: 'lg',
+    showFigures: true,
+  },
+};
+
+export const CancelledWithRefunds: Story = {
+  args: {
+    kind: 'emergency',
+    goal: '1000000000',
+    raised: '800000000',
+    released: '200000000',
+    refunded: '300000000',
+    size: 'lg',
+    showFigures: true,
+  },
+};

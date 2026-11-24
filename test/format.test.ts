@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { deadlineLabel, formatAmount, parseAmount, percent, shortAddress } from '@/lib/format';
+import {
+  amountInput,
+  capAmount,
+  deadlineLabel,
+  formatAmount,
+  parseAmount,
+  percent,
+  shortAddress,
+  splitParagraphs,
+} from '@/lib/format';
 
 describe('formatAmount', () => {
   it('formats stroops as XLM without losing precision', () => {
@@ -40,6 +49,25 @@ describe('parseAmount', () => {
   });
 });
 
+describe('capAmount', () => {
+  it('uses the amount when the limit is unknown or higher', () => {
+    expect(capAmount(100n, null)).toBe(100n);
+    expect(capAmount(100n, 200n)).toBe(100n);
+  });
+
+  it('caps the amount at a lower wallet balance', () => {
+    expect(capAmount(100n, 40n)).toBe(40n);
+  });
+});
+
+describe('amountInput', () => {
+  it('keeps every decimal without a symbol or grouping', () => {
+    expect(amountInput(123_450_000_000n)).toBe('12345');
+    expect(amountInput(1n)).toBe('0.0000001');
+    expect(parseAmount(amountInput(123_456_789n))).toBe(123_456_789n);
+  });
+});
+
 describe('percent', () => {
   it('computes shares of bigint strings', () => {
     expect(percent('250', '1000')).toBe(25);
@@ -65,5 +93,26 @@ describe('deadlineLabel', () => {
   });
   it('shows the end date once passed', () => {
     expect(deadlineLabel('2026-10-01T00:00:00Z', now)).toBe('Ended 01 Oct 2026');
+  });
+});
+
+describe('splitParagraphs', () => {
+  it('splits on double newlines and trims whitespace', () => {
+    const text = 'First paragraph.\n\nSecond paragraph.\n\nThird paragraph.';
+    expect(splitParagraphs(text)).toEqual([
+      'First paragraph.',
+      'Second paragraph.',
+      'Third paragraph.',
+    ]);
+  });
+
+  it('handles multiple consecutive newlines and filters empty lines', () => {
+    const text = 'First paragraph.\n\n\n\nSecond paragraph.\n\n';
+    expect(splitParagraphs(text)).toEqual(['First paragraph.', 'Second paragraph.']);
+  });
+
+  it('returns empty array for empty string or only whitespace', () => {
+    expect(splitParagraphs('')).toEqual([]);
+    expect(splitParagraphs('   \n\n   ')).toEqual([]);
   });
 });

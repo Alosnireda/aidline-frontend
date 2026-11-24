@@ -19,10 +19,65 @@ export function MilestoneLedger({
     [],
   );
 
+  const escrowAmount =
+    BigInt(campaign.raised) - BigInt(campaign.released) - BigInt(campaign.refunded ?? 0);
+  const currentEscrow = escrowAmount > 0n ? escrowAmount : 0n;
+
+  let unreleasedNeeded = 0n;
+  const escrowCovered = campaign.milestones.map((m) => {
+    if (m.released) return false;
+    unreleasedNeeded += BigInt(m.amount);
+    return currentEscrow >= unreleasedNeeded;
+  });
+
+  const advance =
+    campaign.kind === 'emergency' &&
+    campaign.emergencyAdvance &&
+    BigInt(campaign.emergencyAdvance.amount) > 0n
+      ? campaign.emergencyAdvance
+      : null;
+
   return (
     <ol className="relative">
+      {advance && (
+        <li className="grid grid-cols-[2.5rem_1fr] gap-x-4 pb-10">
+          <div className="relative flex flex-col items-center">
+            <span
+              className="figure z-10 flex h-8 w-8 items-center justify-center border border-ink bg-paper text-[0.8125rem] font-medium text-ink"
+              title="Emergency fast-track advance"
+            >
+              !
+            </span>
+            <span className="absolute top-8 bottom-[-0.25rem] w-px bg-rule" aria-hidden="true" />
+          </div>
+          <div className="pt-1">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p className="font-medium text-ink">
+                Emergency fast-track advance
+                <span className="kicker ml-3 text-ink-muted">Not verified first</span>
+              </p>
+              <p className="figure text-ink">{formatAmount(advance.amount)}</p>
+            </div>
+            <p className="mt-2 max-w-prose text-[0.9375rem] text-ink-soft">
+              This payment was sent to the beneficiary before Milestone 1 was verified. Emergency
+              campaigns may draw a one-time advance of up to 20% of the goal without prior
+              verification.
+            </p>
+            {(advance.releasedAt || advance.txHash) && (
+              <p className="mt-2 text-[0.8125rem] text-ink-muted">
+                {advance.releasedAt
+                  ? `Released ${formatDate(advance.releasedAt)}`
+                  : 'Advance released'}
+                {advance.releasedAt && advance.txHash && ' · '}
+                {advance.txHash && <TxLink hash={advance.txHash} />}
+              </p>
+            )}
+          </div>
+        </li>
+      )}
       {campaign.milestones.map((m) => {
         const isNext = m.index === nextIndex;
+        const isCovered = escrowCovered[m.index] ?? false;
         const image = m.proof?.files.filter((f) => f.type.startsWith('image/')) ?? [];
         const docs = m.proof?.files.filter((f) => !f.type.startsWith('image/')) ?? [];
         return (
@@ -67,12 +122,13 @@ export function MilestoneLedger({
                       <p className="max-w-prose">{m.proof.note}</p>
                       {image.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {image.map((f) => (
+                          {image.map((f, i) => (
                             <a key={f.url} href={f.url} target="_blank" rel="noreferrer">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={f.url}
-                                alt={m.proof?.note ?? f.name}
+                                alt={`Proof photo ${i + 1} of ${image.length} for milestone ${m.index + 1}`}
+                                loading="lazy"
                                 className="h-24 w-36 border border-rule object-cover"
                               />
                             </a>
@@ -104,13 +160,21 @@ export function MilestoneLedger({
                     )
                   )}
                   <p className="text-[0.8125rem] text-ink-muted">
-                    Released {formatDate(m.releasedAt)} · {m.txHash && <TxLink hash={m.txHash} />}
+                    Released {formatDate(m.releasedAt)}
+                    {m.txHash && (
+                      <>
+                        {' · '}
+                        <TxLink hash={m.txHash} />
+                      </>
+                    )}
                   </p>
                 </div>
               ) : (
                 <p className="mt-2 text-[0.9375rem] text-ink-muted">
                   {campaign.status === 'active'
-                    ? 'Awaiting verification. Funds for this milestone stay in escrow until then.'
+                    ? isCovered
+                      ? 'Covered by escrow. Awaiting verification.'
+                      : 'Escrow does not cover this milestone yet.'
                     : 'Not released. Unspent funds can be reclaimed by donors.'}
                 </p>
               )}

@@ -2,16 +2,23 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { CampaignCover } from '@/components/campaign/CampaignCover';
 import { KIND } from '@/components/campaign/kind';
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
-import { api, ApiError, type Campaign, type CampaignKind, type Verifier } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  reuseUpload,
+  type CampaignKind,
+  type CachedUpload,
+  type Verifier,
+} from '@/lib/api';
 import { config } from '@/lib/config';
-import { deadlineHint, defaultDeadline, minimumDeadline } from '@/lib/deadline';
-import { formatAmount, parseAmount, shortAddress } from '@/lib/format';
+import { errorFieldId, errorSummary, fieldA11y } from '@/lib/formA11y';
+import { formatAmount, parseAmount, shortAddress, splitParagraphs } from '@/lib/format';
 import { describeError } from '@/lib/stellar/errors';
 import { aidline } from '@/lib/stellar/tx';
 import { useTx } from '@/lib/useTx';
@@ -32,7 +39,13 @@ function CharacterCount({ value, max, min }: { value: string; max: number; min?:
   );
 }
 
-export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
+export function CreateCampaignForm({
+  verifiers,
+  verifiersUnavailable = false,
+}: {
+  verifiers: Verifier[];
+  verifiersUnavailable?: boolean;
+}) {
   const router = useRouter();
   const { address, state: wallet, connect, sign } = useWallet();
   const { state, run, busy } = useTx();
@@ -44,7 +57,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
   const [location, setLocation] = useState('');
   const [organizer, setOrganizer] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [coverError, setCoverError] = useState(false);
+  const [preview, setPreview] = useState(false);
   // null until edited, so it follows the connected wallet by default.
   const [beneficiaryInput, setBeneficiary] = useState<string | null>(null);
   const [verifier, setVerifier] = useState(verifiers[0]?.address ?? '');
@@ -53,15 +66,33 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
   const [milestones, setMilestones] = useState(['', '']);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const uploadedMetadata = useRef<CachedUpload<string, null> | null>(null);
 
   const beneficiary = beneficiaryInput ?? address ?? '';
+  const metadata = {
+    title: title.trim(),
+    summary: summary.trim(),
+    description: description.trim(),
+    location: location.trim(),
+    organizer: organizer.trim() || undefined,
+    imageUrl: imageUrl.trim() || undefined,
+  };
+  const metadataKey = JSON.stringify(metadata);
+  const clearMetadata = () => {
+    uploadedMetadata.current = null;
+  };
 
   const amounts = milestones.map((m) => parseAmount(m));
   const goal = amounts.every((a) => a !== null && a > 0n)
     ? amounts.reduce<bigint>((sum, a) => sum + (a ?? 0n), 0n)
     : null;
 
-  const validate = () => {
+  /**
+   * Error keys are collected in visual order so the first entry is also the
+   * first field a keyboard user meets on the page.
+   */
+  const collectErrors = () => {
     const e: Record<string, string> = {};
     if (title.trim().length < 5) e.title = 'Use at least 5 characters.';
     if (summary.trim().length < 10) e.summary = 'Use at least 10 characters.';
@@ -71,37 +102,41 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
     if (!/^G[A-Z2-7]{55}$/.test(beneficiary.trim()))
       e.beneficiary = 'Enter a Stellar address starting with G.';
     if (!verifier) e.verifier = 'Choose a verifier.';
-    if (!deadline || deadline < minDate) e.deadline = 'Pick a date in the future.';
     amounts.forEach((a, i) => {
       if (a === null || a <= 0n) e[`m${i}`] = 'Enter an amount greater than zero.';
     });
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    if (!deadline || deadline < minDate) e.deadline = 'Pick a date in the future.';
+    return e;
   };
 
   const submit = async () => {
     setFormError(null);
-    if (!address || !validate()) return;
+    if (!address) return;
 
-    let metadataUri: string;
-    try {
-      metadataUri = (
-        await api.createMetadata({
-          title: title.trim(),
-          summary: summary.trim(),
-          description: description.trim(),
-          location: location.trim(),
-          organizer: organizer.trim() || undefined,
-          imageUrl: imageUrl.trim() || undefined,
-        })
-      ).uri;
-    } catch (err) {
-      if (err instanceof ApiError && err.issues.length) {
-        setErrors(Object.fromEntries(err.issues.map((i) => [i.path, i.message])));
-      } else {
-        setFormError(describeError(err));
-      }
+    const validationErrors = collectErrors();
+    setErrors(validationErrors);
+
+    const invalidKeys = Object.keys(validationErrors);
+    if (invalidKeys.length > 0) {
+      setAnnouncement(errorSummary(invalidKeys.length));
+      const firstInvalidId = errorFieldId(invalidKeys[0]!);
+      requestAnimationFrame(() => document.getElementById(firstInvalidId)?.focus());
       return;
+    }
+
+    let metadataUri = reuseUpload(uploadedMetadata.current, metadataKey, null);
+    if (!metadataUri) {
+      try {
+        metadataUri = (await api.createMetadata(metadata)).uri;
+        uploadedMetadata.current = { key: metadataKey, input: null, uri: metadataUri };
+      } catch (err) {
+        if (err instanceof ApiError && err.issues.length) {
+          setErrors(Object.fromEntries(err.issues.map((i) => [i.path, i.message])));
+        } else {
+          setFormError(describeError(err));
+        }
+        return;
+      }
     }
 
     let createdId: string | null = null;
@@ -132,6 +167,18 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
     );
     if (result) router.push(`/campaigns/${String(result.value)}`);
   };
+
+  if (verifiersUnavailable) {
+    return (
+      <div role="alert" className="border-y border-rule py-6">
+        <p className="font-medium">We could not load the list of verifiers.</p>
+        <p className="mt-1.5 text-[0.9375rem] text-ink-muted">
+          The campaign service is not answering right now, so this form cannot show who is able to
+          verify a campaign. Refresh the page to try again.
+        </p>
+      </div>
+    );
+  }
 
   if (verifiers.length === 0) {
     return (
@@ -179,13 +226,17 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
         void submit();
       }}
     >
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
       <fieldset>
         <legend className="kicker mb-4">1. What kind of campaign</legend>
         <div className="grid gap-3 sm:grid-cols-2">
           {(['emergency', 'climate'] as const).map((k) => (
             <label
               key={k}
-              className={`cursor-pointer border p-4 ${kind === k ? `${KIND[k].border} ${KIND[k].wash}` : 'border-rule'}`}
+              className={`cursor-pointer border p-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink has-[:focus-visible]:outline-offset-2 ${kind === k ? `${KIND[k].border} ${KIND[k].wash}` : 'border-rule'}`}
             >
               <input
                 type="radio"
@@ -207,7 +258,16 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
       </fieldset>
 
       <fieldset className="space-y-5">
-        <legend className="kicker mb-4">2. The story donors will read</legend>
+        <legend className="kicker">2. The story donors will read</legend>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            className="btn btn-secondary text-xs"
+            onClick={() => setPreview((p) => !p)}
+          >
+            {preview ? 'Edit story' : 'Preview'}
+          </button>
+        </div>
         <div>
           <label className="label" htmlFor="title">
             Title
@@ -215,8 +275,12 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="title"
             className="field"
+            {...fieldA11y('title', errors)}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              clearMetadata();
+            }}
             maxLength={120}
             placeholder="Clean water after flooding in Les Cayes"
           />
@@ -230,8 +294,12 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="summary"
             className="field"
+            {...fieldA11y('summary', errors)}
             value={summary}
-            onChange={(e) => setSummary(e.target.value)}
+            onChange={(e) => {
+              setSummary(e.target.value);
+              clearMetadata();
+            }}
             maxLength={280}
           />
           <CharacterCount value={summary} max={280} min={10} />
@@ -244,8 +312,12 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="location"
             className="field"
+            {...fieldA11y('location', errors)}
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
+            onChange={(e) => {
+              setLocation(e.target.value);
+              clearMetadata();
+            }}
             placeholder="Les Cayes, Haiti"
             maxLength={120}
           />
@@ -259,12 +331,16 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="organizer"
             className="field"
+            {...fieldA11y('organizer', errors, 'organizer-hint')}
             value={organizer}
-            onChange={(e) => setOrganizer(e.target.value)}
+            onChange={(e) => {
+              setOrganizer(e.target.value);
+              clearMetadata();
+            }}
             placeholder="Haitian community association, Montreal"
             maxLength={120}
           />
-          <p className="hint">
+          <p className="hint" id="organizer-hint">
             Your group or community abroad. Donors trust campaigns they can place.
           </p>
           <CharacterCount value={organizer} max={120} />
@@ -277,12 +353,17 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <textarea
             id="description"
             className="field min-h-40"
+            {...fieldA11y('description', errors, 'description-hint')}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              clearMetadata();
+            }}
             maxLength={10000}
           />
-          <p className="hint">Leave a blank line between paragraphs.</p>
-          <CharacterCount value={description} max={10000} min={20} />
+          <p className="hint" id="description-hint">
+            Leave a blank line between paragraphs.
+          </p>
           {err('description')}
         </div>
         <div>
@@ -293,14 +374,15 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             id="image"
             type="url"
             className="field"
+            {...fieldA11y('imageUrl', errors, 'image-hint')}
             value={imageUrl}
             onChange={(e) => {
               setImageUrl(e.target.value);
-              setCoverError(false);
+              clearMetadata();
             }}
             placeholder="https://"
           />
-          <p className="hint">
+          <p className="hint" id="image-hint">
             A real photo of the place or the work. Without one, a cover is drawn from the location.
           </p>
           {/^http:/i.test(coverUrl) && (
@@ -325,6 +407,58 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           )}
           {err('imageUrl')}
         </div>
+
+        {preview ? (
+          <div className="rounded border border-rule p-6 space-y-6">
+            <div>
+              <p className="text-[0.75rem] font-medium uppercase tracking-[0.08em]">
+                <span className={KIND[kind].text}>{KIND[kind].label}</span>
+                <span className="text-rule"> / </span>
+                <span className="text-ink-muted">{location.trim() || 'Unknown location'}</span>
+              </p>
+              <h1 className="mt-4 text-[2.5rem] sm:text-[3.25rem]">
+                {title.trim() || 'Campaign title'}
+              </h1>
+              {summary.trim() && (
+                <p className="mt-5 max-w-[40rem] text-[1.1875rem] text-ink-soft">
+                  {summary.trim()}
+                </p>
+              )}
+              {organizer.trim() && (
+                <p className="mt-4 text-[0.9375rem] text-ink-muted">
+                  Raised by <span className="text-ink">{organizer.trim()}</span>
+                </p>
+              )}
+            </div>
+
+            <CampaignCover
+              campaign={{
+                kind,
+                metadata: {
+                  title: title.trim(),
+                  summary: summary.trim(),
+                  location: location.trim(),
+                  organizer: organizer.trim() || null,
+                  category: null,
+                  imageUrl: imageUrl.trim() || null,
+                  description: description.trim(),
+                },
+              }}
+              className="aspect-video w-full"
+            />
+
+            {description.trim() ? (
+              <section className="mt-12">
+                <p className="kicker">The situation</p>
+                <div className="mt-4 max-w-[68ch] space-y-4 text-[1.0625rem]">
+                  {splitParagraphs(description).map((para, i) => (
+                    <p key={i}>{para}</p>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
       </fieldset>
 
       <fieldset className="space-y-5">
@@ -336,9 +470,11 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
                 <span className="figure w-6 text-sm text-ink-muted">{i + 1}</span>
                 <div className="flex flex-1">
                   <input
+                    id={`milestone-${i}`}
                     aria-label={`Milestone ${i + 1} amount`}
                     inputMode="decimal"
                     className="field figure rounded-r-none"
+                    {...fieldA11y(`m${i}`, errors)}
                     value={m}
                     placeholder="0"
                     onChange={(e) =>
@@ -360,7 +496,9 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
                 )}
               </div>
               {errors[`m${i}`] && (
-                <p className="mt-1.5 pl-9 text-[0.8125rem] text-danger">{errors[`m${i}`]}</p>
+                <p id={`m${i}-error`} className="mt-1.5 pl-9 text-[0.8125rem] text-danger">
+                  {errors[`m${i}`]}
+                </p>
               )}
             </li>
           ))}
@@ -392,13 +530,13 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
             id="deadline"
             type="date"
             className="field figure"
+            {...fieldA11y('deadline', errors, 'deadline-hint')}
             value={deadline}
             min={minDate}
             onChange={(e) => setDeadline(e.target.value)}
           />
-          <p className="hint">
-            If milestones are not all verified by then, donors can reclaim unreleased funds.{' '}
-            {deadlineHint(deadline)}
+          <p className="hint" id="deadline-hint">
+            If milestones are not all verified by then, donors can reclaim unreleased funds.
           </p>
           {err('deadline')}
         </div>
@@ -413,11 +551,12 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <input
             id="beneficiary"
             className="field figure text-sm"
+            {...fieldA11y('beneficiary', errors, 'beneficiary-hint')}
             value={beneficiary}
             onChange={(e) => setBeneficiary(e.target.value)}
             placeholder="G..."
           />
-          <p className="hint">
+          <p className="hint" id="beneficiary-hint">
             Receives each milestone payout. Often the local organisation doing the work.
           </p>
           {err('beneficiary')}
@@ -429,6 +568,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
           <select
             id="verifier"
             className="field"
+            {...fieldA11y('verifier', errors, 'verifier-hint')}
             value={verifier}
             onChange={(e) => setVerifier(e.target.value)}
           >
@@ -440,7 +580,7 @@ export function CreateCampaignForm({ verifiers }: { verifiers: Verifier[] }) {
               </option>
             ))}
           </select>
-          <p className="hint">
+          <p className="hint" id="verifier-hint">
             An independent organisation that confirms each milestone before money moves.
           </p>
           {selfVerification && (

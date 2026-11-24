@@ -33,6 +33,17 @@ export function parseAmount(input: string, decimals = config.tokenDecimals): big
   return BigInt(whole!) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0') || '0');
 }
 
+export function capAmount(amount: bigint, limit: bigint | null): bigint {
+  return limit !== null && limit < amount ? limit : amount;
+}
+
+export function amountInput(amount: bigint): string {
+  return formatAmount(amount, { symbol: false, maxFraction: config.tokenDecimals }).replace(
+    /,/g,
+    '',
+  );
+}
+
 /** Share of `part` in `total` as a 0 to 100 number, safe for bigint strings. */
 export function percent(part: string | bigint, total: string | bigint): number {
   const t = BigInt(total);
@@ -63,4 +74,14 @@ export function deadlineLabel(iso: string, now = new Date()): string {
   const days = Math.floor(ms / 86_400_000);
   if (days === 0) return 'Ends today';
   return `${days} day${days === 1 ? '' : 's'} left`;
+}
+
+/**
+ * Splits campaign description text into paragraphs on blank lines.
+ */
+export function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 }
