@@ -29,6 +29,9 @@ export const en = {
   'footer.backend': 'Backend',
   'footer.frontend': 'Frontend',
   'footer.contractOnExplorer': 'Contract on explorer',
+  'footer.themeLight': 'Light theme',
+  'footer.themeDark': 'Dark theme',
+  'footer.toggleTheme': 'Switch color theme',
 
   'wallet.connect': 'Connect wallet',
   'wallet.connectedWith': 'Connected with {name}',
@@ -123,6 +126,9 @@ export const fr: Record<MessageKey, string> = {
   'footer.backend': 'Backend',
   'footer.frontend': 'Frontend',
   'footer.contractOnExplorer': "Contrat sur l'explorateur",
+  'footer.themeLight': 'Thème clair',
+  'footer.themeDark': 'Thème sombre',
+  'footer.toggleTheme': 'Changer de thème',
 
   'wallet.connect': 'Connecter le portefeuille',
   'wallet.connectedWith': 'Connecté avec {name}',
@@ -215,6 +221,9 @@ export const es: Record<MessageKey, string> = {
   'footer.backend': 'Backend',
   'footer.frontend': 'Frontend',
   'footer.contractOnExplorer': 'Contrato en el explorador',
+  'footer.themeLight': 'Tema claro',
+  'footer.themeDark': 'Tema oscuro',
+  'footer.toggleTheme': 'Cambiar tema',
 
   'wallet.connect': 'Conectar billetera',
   'wallet.connectedWith': 'Conectado con {name}',
