@@ -4,12 +4,15 @@ import { SiteFooter } from '@/components/layout/SiteFooter';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { WalletProvider } from '@/components/wallet/WalletProvider';
+import { config } from '@/lib/config';
 import { FiatProvider } from '@/lib/fiat';
 
 import { newsreader, plexMono, plexSans } from './fonts';
 import './globals.css';
 
 export const metadata: Metadata = {
+  // Resolves relative canonical, Open Graph and image URLs against the site origin.
+  metadataBase: new URL(config.siteUrl),
   title: {
     default: 'Aidline: diaspora giving you can trace',
     template: '%s · Aidline',

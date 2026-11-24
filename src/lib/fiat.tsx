@@ -15,7 +15,7 @@ export type Currency = 'USD' | 'EUR' | 'GBP' | 'NGN';
 
 export const CURRENCIES: Currency[] = ['USD', 'EUR', 'GBP', 'NGN'];
 
-interface Rates {
+export interface Rates {
   usd: number;
   eur: number;
   gbp: number;
@@ -90,6 +90,32 @@ export function stroopsToFiat(
   }
 }
 
+/** Rates older than this are no longer shown, even when every refresh since has failed. */
+export const RATES_MAX_AGE_MS = 10 * 60_000;
+
+/** The last good rates and when they were fetched (ms since the epoch). */
+export interface RatesSnapshot {
+  rates: Rates | null;
+  fetchedAt: number | null;
+}
+
+export const NO_RATES: RatesSnapshot = { rates: null, fetchedAt: null };
+
+/** A refresh succeeded: the new rates replace the old ones. */
+export function afterFetchSuccess(rates: Rates, now: number): RatesSnapshot {
+  return { rates, fetchedAt: now };
+}
+
+/**
+ * A refresh failed: keep the last good rates, so one bad request does not hide
+ * every estimate, unless they are older than RATES_MAX_AGE_MS, in which case
+ * they are dropped so a very stale price is never shown.
+ */
+export function afterFetchFailure(prev: RatesSnapshot, now: number): RatesSnapshot {
+  if (prev.rates === null || prev.fetchedAt === null) return NO_RATES;
+  return now - prev.fetchedAt > RATES_MAX_AGE_MS ? NO_RATES : prev;
+}
+
 /** Fetches the XLM price in every supported currency. */
 async function fetchStellarRates(): Promise<Rates> {
   const res = await fetch(
@@ -109,7 +135,8 @@ async function fetchStellarRates(): Promise<Rates> {
 
 export function FiatProvider({ children }: { children: React.ReactNode }) {
   const currency = useSyncExternalStore(subscribeCurrency, readCurrency, () => 'USD' as Currency);
-  const [rates, setRates] = useState<Rates | null>(null);
+  const [snapshot, setSnapshot] = useState<RatesSnapshot>(NO_RATES);
+  const rates = snapshot.rates;
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
 
@@ -128,13 +155,14 @@ export function FiatProvider({ children }: { children: React.ReactNode }) {
       fetchStellarRates()
         .then((next) => {
           if (cancelled) return;
-          setRates(next);
+          setSnapshot(afterFetchSuccess(next, Date.now()));
           setError(false);
         })
         .catch(() => {
           if (cancelled) return;
           setError(true);
-          setRates(null);
+          // Keep the last good rates; only very old ones are dropped.
+          setSnapshot((prev) => afterFetchFailure(prev, Date.now()));
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
