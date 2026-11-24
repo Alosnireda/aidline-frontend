@@ -6,6 +6,7 @@ import { FundingBar } from '@/components/campaign/FundingBar';
 import { KIND } from '@/components/campaign/kind';
 import { Wordmark } from '@/components/layout/Wordmark';
 import { api } from '@/lib/api';
+import { embedDonateState } from '@/lib/embed';
 import { safe } from '@/lib/safe';
 
 interface Props {
@@ -21,6 +22,7 @@ export default async function EmbedCampaignPage({ params }: Props) {
   }
 
   const k = KIND[campaign.kind];
+  const donate = embedDonateState(campaign.status);
   const m = campaign.metadata;
 
   return (
@@ -54,7 +56,11 @@ export default async function EmbedCampaignPage({ params }: Props) {
         </div>
 
         <div className="mt-5 border-t border-rule pt-4">
-          <DonatePanel campaign={campaign} />
+          {donate.canDonate ? (
+            <DonatePanel campaign={campaign} />
+          ) : (
+            <p className="text-sm text-ink-muted">{donate.message}</p>
+          )}
         </div>
 
         <div className="mt-4 border-t border-rule pt-3 text-center">
