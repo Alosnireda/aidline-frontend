@@ -109,6 +109,11 @@ export function MilestoneLedger({
                   </span>
                 </p>
               </div>
+              {m.dueDate && (
+                <p className="mt-1 text-[0.8125rem] text-ink-muted">
+                  Due <span className="figure">{formatDate(m.dueDate)}</span>
+                </p>
+              )}
 
               {m.released && m.releasedAt ? (
                 <div className="mt-3 space-y-3">

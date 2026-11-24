@@ -10,7 +10,7 @@ import { KIND, STATUS_LABEL } from '@/components/campaign/kind';
 import { MilestoneLedger } from '@/components/campaign/MilestoneLedger';
 import { RecentDonations } from '@/components/campaign/RecentDonations';
 import { RefundPanel } from '@/components/campaign/RefundPanel';
-import { SponsorPool } from '@/components/campaign/SponsorPool';
+import { SponsorPoolPanel } from '@/components/campaign/SponsorPoolPanel';
 import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
@@ -190,7 +190,7 @@ export default async function CampaignPage(props: PageProps<'/campaigns/[id]'>) 
               </p>
             </section>
 
-            <SponsorPool pool={sponsorPool} />
+            <SponsorPoolPanel campaign={campaign} initialPool={sponsorPool} />
 
             <section>
               {campaign.status === 'active' && <DonatePanel campaign={campaign} />}

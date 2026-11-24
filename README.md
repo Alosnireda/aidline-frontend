@@ -68,6 +68,7 @@ Never put secrets in `NEXT_PUBLIC_*` variables. They are shipped to every browse
 - **After a transaction** the UI waits for the indexer to catch up before refreshing, so donors see their gift reflected immediately. See [`src/lib/useTx.ts`](src/lib/useTx.ts).
 - **Amounts** are handled as `bigint` from the API to the screen and never pass through a JavaScript number.
 - **Fonts** are self hosted, so builds never depend on a network call.
+- **Offline behaviour:** the service worker ([`public/sw.js`](public/sw.js)) precaches only the home page (`/`), the offline fallback page (`/offline`), and three brand logo assets, and only intercepts navigation requests. Any page already open remains visible when the connection drops, while new navigations fall back to `/offline` until connectivity returns.
 
 ```
 src/
