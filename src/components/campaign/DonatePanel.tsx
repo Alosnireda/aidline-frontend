@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { TxStatus } from '@/components/ui/TxStatus';
 import { useWallet } from '@/components/wallet/WalletProvider';
 import { api, type CampaignDetail } from '@/lib/api';
+import { clearBackedCache } from '@/lib/backed';
 import { config } from '@/lib/config';
 import {
   isNativeToken,
@@ -167,6 +168,8 @@ export function DonatePanel({ campaign }: { campaign: CampaignDetail }) {
       async () => BigInt((await api.campaign(campaign.id)).raised) > before,
     );
     refreshBalance();
+    // So the campaign cards mark this one as backed the next time they load.
+    clearBackedCache(address);
   };
 
   const approveForPledge = async () => {

@@ -48,6 +48,7 @@ export interface Proof {
 export interface Milestone {
   index: number;
   amount: string;
+  dueDate?: string | null;
   released: boolean;
   releasedAt: string | null;
   txHash: string | null;

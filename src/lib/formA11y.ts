@@ -25,7 +25,10 @@ export function fieldHintId(key: string): string {
  */
 export function errorFieldId(key: string): string {
   const milestone = /^m(\d+)$/.exec(key);
-  return milestone ? `milestone-${milestone[1]}` : key;
+  if (milestone) return `milestone-${milestone[1]}`;
+  const due = /^md(\d+)$/.exec(key);
+  if (due) return `milestone-due-${due[1]}`;
+  return key;
 }
 
 /**
