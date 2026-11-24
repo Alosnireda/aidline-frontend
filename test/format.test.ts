@@ -4,6 +4,7 @@ import {
   amountInput,
   capAmount,
   deadlineLabel,
+  UNKNOWN_AMOUNT,
   formatAmount,
   parseAmount,
   percent,
@@ -26,6 +27,31 @@ describe('formatAmount', () => {
 
   it('can show more fraction digits', () => {
     expect(formatAmount(1n, { maxFraction: 7 })).toBe('0.0000001 XLM');
+  });
+
+  it('returns the placeholder instead of throwing for malformed amounts', () => {
+    expect(UNKNOWN_AMOUNT).toBe('unknown');
+    expect(formatAmount('')).toBe('unknown');
+    expect(formatAmount('   ')).toBe('unknown');
+    expect(formatAmount(null)).toBe('unknown');
+    expect(formatAmount(undefined)).toBe('unknown');
+    expect(formatAmount('12.5')).toBe('unknown');
+    expect(formatAmount('abc')).toBe('unknown');
+    expect(formatAmount('1e9')).toBe('unknown');
+  });
+
+  it('uses the same placeholder with or without the symbol', () => {
+    expect(formatAmount('abc', { symbol: false })).toBe('unknown');
+  });
+
+  it('still formats valid amounts after a bad one', () => {
+    expect(formatAmount('nope')).toBe('unknown');
+    expect(formatAmount('1200000000')).toBe('120 XLM');
+  });
+
+  it('accepts negative amounts and surrounding whitespace that BigInt accepts', () => {
+    expect(formatAmount('-12345678', { symbol: false })).toBe('-1.23');
+    expect(formatAmount(' 1200000000 ', { symbol: false })).toBe('120');
   });
 });
 

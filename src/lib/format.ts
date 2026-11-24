@@ -1,16 +1,31 @@
 import { config } from './config';
 
+/** Shown in place of an amount that is missing or not a whole number of base units. */
+export const UNKNOWN_AMOUNT = 'unknown';
+
 /**
  * Formats a token amount given in the smallest unit (a string or bigint, as
  * the API returns it) without ever converting through a JS number.
+ *
+ * Never throws: an amount that is empty, `null`, `undefined`, has a decimal
+ * point or is not numeric returns the placeholder `unknown` (UNKNOWN_AMOUNT),
+ * with no symbol, so one bad value cannot take a whole page down.
  */
 export function formatAmount(
-  raw: string | bigint,
+  raw: string | bigint | null | undefined,
   opts: { decimals?: number; maxFraction?: number; symbol?: boolean } = {},
 ): string {
   const decimals = opts.decimals ?? config.tokenDecimals;
   const maxFraction = opts.maxFraction ?? 2;
-  const value = BigInt(raw);
+  let value: bigint;
+  try {
+    if (raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '')) {
+      return UNKNOWN_AMOUNT;
+    }
+    value = BigInt(raw);
+  } catch {
+    return UNKNOWN_AMOUNT;
+  }
   const negative = value < 0n;
   const abs = negative ? -value : value;
   const base = 10n ** BigInt(decimals);

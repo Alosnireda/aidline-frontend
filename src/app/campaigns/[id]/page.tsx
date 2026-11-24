@@ -14,6 +14,7 @@ import { SponsorPool } from '@/components/campaign/SponsorPool';
 import { VerifierPanel } from '@/components/campaign/VerifierPanel';
 import { Container } from '@/components/ui/Container';
 import { api, ApiError } from '@/lib/api';
+import { getCampaign } from '@/lib/campaignData';
 import { explorer, config } from '@/lib/config';
 import {
   deadlineLabel,
@@ -28,7 +29,7 @@ import { getSponsorPool } from '@/lib/stellar/balance';
 async function load(id: string) {
   if (!/^\d+$/.test(id)) notFound();
   try {
-    return await api.campaign(id);
+    return await getCampaign(id);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) notFound();
     throw err;
@@ -37,10 +38,11 @@ async function load(id: string) {
 
 export async function generateMetadata(props: PageProps<'/campaigns/[id]'>): Promise<Metadata> {
   const { id } = await props.params;
-  const c = await safe(() => api.campaign(id));
+  const c = await safe(() => getCampaign(id));
   return {
     title: c?.metadata?.title ?? `Campaign #${id}`,
     description: c?.metadata?.summary,
+    alternates: { canonical: `/campaigns/${id}` },
   };
 }
 
