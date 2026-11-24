@@ -34,7 +34,7 @@ export function ServiceWorkerRegister() {
       className="border-b border-rule bg-paper-sunk px-4 py-2 text-center font-mono text-xs text-ink-soft"
       role="status"
     >
-      You are currently offline. Showing cached content.
+      You are currently offline. This page stays visible, while navigating to another page will show the offline fallback.
     </div>
   );
 }

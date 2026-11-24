@@ -51,6 +51,7 @@ export function CreateCampaignForm({
   const [minDate] = useState(() => isoDate(new Date(Date.now() + DAY)));
   const [deadline, setDeadline] = useState(() => isoDate(new Date(Date.now() + 30 * DAY)));
   const [milestones, setMilestones] = useState(['', '']);
+  const [milestoneDueDates, setMilestoneDueDates] = useState(['', '']);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -92,6 +93,24 @@ export function CreateCampaignForm({
     amounts.forEach((a, i) => {
       if (a === null || a <= 0n) e[`m${i}`] = 'Enter an amount greater than zero.';
     });
+    const hasAnyDueDate = milestoneDueDates.some((d) => d.trim() !== '');
+    if (hasAnyDueDate) {
+      let prevDue = '';
+      milestoneDueDates.forEach((d, i) => {
+        if (!d) {
+          e[`md${i}`] = 'Set a due date for every milestone, or leave all blank.';
+          return;
+        }
+        if (d < minDate) {
+          e[`md${i}`] = 'Pick a date in the future.';
+        } else if (prevDue && d <= prevDue) {
+          e[`md${i}`] = 'Due date must be after the previous milestone.';
+        } else if (deadline && d > deadline) {
+          e[`md${i}`] = 'Due date must be on or before the campaign deadline.';
+        }
+        prevDue = d;
+      });
+    }
     if (!deadline || deadline < minDate) e.deadline = 'Pick a date in the future.';
     return e;
   };
@@ -126,23 +145,30 @@ export function CreateCampaignForm({
       }
     }
 
+    const hasDueDates = milestoneDueDates.some((d) => d.trim() !== '');
     let createdId: string | null = null;
     const result = await run(
       async (on) => {
-        const r = await aidline.createCampaign(
-          {
-            creator: address,
-            beneficiary: beneficiary.trim(),
-            verifier,
-            kind,
-            metadataUri,
-            // End of the chosen day in UTC.
-            deadline: new Date(`${deadline}T23:59:59Z`),
-            milestones: amounts as bigint[],
-          },
-          sign,
-          on,
-        );
+        const baseParams = {
+          creator: address,
+          beneficiary: beneficiary.trim(),
+          verifier,
+          kind,
+          metadataUri,
+          // End of the chosen day in UTC.
+          deadline: new Date(`${deadline}T23:59:59Z`),
+          milestones: amounts as bigint[],
+        };
+        const r = hasDueDates
+          ? await aidline.createCampaignWithDueDates(
+              {
+                ...baseParams,
+                milestoneDueDates: milestoneDueDates.map((d) => new Date(`${d}T23:59:59Z`)),
+              },
+              sign,
+              on,
+            )
+          : await aidline.createCampaign(baseParams, sign, on);
         createdId = String(r.value);
         return r;
       },
@@ -411,9 +437,9 @@ export function CreateCampaignForm({
         <ol className="space-y-3">
           {milestones.map((m, i) => (
             <li key={i}>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="figure w-6 text-sm text-ink-muted">{i + 1}</span>
-                <div className="flex flex-1">
+                <div className="flex min-w-[10rem] flex-1">
                   <input
                     id={`milestone-${i}`}
                     aria-label={`Milestone ${i + 1} amount`}
@@ -430,11 +456,27 @@ export function CreateCampaignForm({
                     {config.tokenSymbol}
                   </span>
                 </div>
+                <input
+                  id={`milestone-due-${i}`}
+                  type="date"
+                  aria-label={`Milestone ${i + 1} due date (optional)`}
+                  className="field figure w-auto"
+                  {...fieldA11y(`md${i}`, errors)}
+                  value={milestoneDueDates[i] ?? ''}
+                  min={minDate}
+                  max={deadline || undefined}
+                  onChange={(e) =>
+                    setMilestoneDueDates((ds) => ds.map((x, j) => (j === i ? e.target.value : x)))
+                  }
+                />
                 {milestones.length > 1 && (
                   <button
                     type="button"
                     className="link text-sm"
-                    onClick={() => setMilestones((ms) => ms.filter((_, j) => j !== i))}
+                    onClick={() => {
+                      setMilestones((ms) => ms.filter((_, j) => j !== i));
+                      setMilestoneDueDates((ds) => ds.filter((_, j) => j !== i));
+                    }}
                   >
                     Remove
                   </button>
@@ -445,6 +487,11 @@ export function CreateCampaignForm({
                   {errors[`m${i}`]}
                 </p>
               )}
+              {errors[`md${i}`] && (
+                <p id={`md${i}-error`} className="mt-1.5 pl-9 text-[0.8125rem] text-danger">
+                  {errors[`md${i}`]}
+                </p>
+              )}
             </li>
           ))}
         </ol>
@@ -453,7 +500,10 @@ export function CreateCampaignForm({
             <button
               type="button"
               className="link text-sm"
-              onClick={() => setMilestones((ms) => [...ms, ''])}
+              onClick={() => {
+                setMilestones((ms) => [...ms, '']);
+                setMilestoneDueDates((ds) => [...ds, '']);
+              }}
             >
               Add a milestone
             </button>

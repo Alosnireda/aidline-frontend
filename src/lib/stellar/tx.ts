@@ -236,4 +236,66 @@ export const aidline = {
   /** Withdraws a deregistered verifier's remaining bond after the delay has elapsed. */
   withdrawBond: (verifier: string, sign: Signer, on?: (s: Status) => void) =>
     invoke<bigint>(verifier, 'withdraw_bond', [addr(verifier)], sign, on),
+
+  /** Creates a campaign with per-milestone due dates and returns its ID. */
+  createCampaignWithDueDates: (
+    p: {
+      creator: string;
+      beneficiary: string;
+      verifier: string;
+      token?: string;
+      kind: 'emergency' | 'climate';
+      metadataUri: string;
+      deadline: Date;
+      milestones: bigint[];
+      milestoneDueDates: Date[];
+    },
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) =>
+    invoke<bigint>(
+      p.creator,
+      'create_campaign_with_due_dates',
+      [
+        addr(p.creator),
+        addr(p.beneficiary),
+        addr(p.verifier),
+        addr(p.token ?? config.tokenId),
+        xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(p.kind === 'emergency' ? 'Emergency' : 'Climate')]),
+        str(p.metadataUri),
+        u64(Math.floor(p.deadline.getTime() / 1000)),
+        nativeToScVal(p.milestones.map((m) => nativeToScVal(m, { type: 'i128' }))),
+        nativeToScVal(p.milestoneDueDates.map((d) => u64(Math.floor(d.getTime() / 1000)))),
+      ],
+      sign,
+      on,
+    ),
+
+  /** Deposits upfront funds into a sponsor matching pool for a campaign. */
+  depositSponsorPool: (
+    p: {
+      sponsor: string;
+      campaignId: string;
+      ratioBps: number;
+      cap: bigint;
+      amount: bigint;
+    },
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) =>
+    invoke(
+      p.sponsor,
+      'deposit_sponsor_pool',
+      [addr(p.sponsor), u64(p.campaignId), u32(p.ratioBps), i128(p.cap), i128(p.amount)],
+      sign,
+      on,
+    ),
+
+  /** Returns a sponsor's unused matching pool balance after the campaign ends. */
+  returnSponsorPool: (
+    sponsor: string,
+    campaignId: string,
+    sign: Signer,
+    on?: (s: Status) => void,
+  ) => invoke<bigint>(sponsor, 'return_sponsor_pool', [addr(sponsor), u64(campaignId)], sign, on),
 };
